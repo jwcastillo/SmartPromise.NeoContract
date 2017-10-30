@@ -7,9 +7,17 @@ namespace SmartPromise
 {
     public class SmartPromise : SmartContract
     {
-        public static void Main()
+        public static int Main (int a, int b, int c)
         {
-            Storage.Put(Storage.CurrentContext, "Hello", "World");
+            if (a> b)
+                return a * Sum (b, c);
+            else
+                return Sum (a, b) * c;
+        }
+
+        public static int Sum (int a, int b)
+        {
+            return a + b;
         }
     }
 }
