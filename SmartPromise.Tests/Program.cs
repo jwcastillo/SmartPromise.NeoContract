@@ -25,11 +25,6 @@ namespace SmartPromise.Tests
                     sb.EmitPush(4); // corresponds to the parameter b
                     sb.EmitPush(3); // corresponds to the parameter a
                     engine.LoadScript(sb.ToArray());
-
-                    engine.Execute(); // start execution
-                    var r = engine.EvaluationStack.Peek().GetBigInteger(); // set the return value here
-                    Console.WriteLine($"Execution result {r}");
-                    Console.ReadLine();
                 }
 
                 engine.Execute(); // start execution
