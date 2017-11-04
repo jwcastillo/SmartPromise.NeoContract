@@ -7,17 +7,49 @@ namespace SmartPromise
 {
     public class SmartPromise : SmartContract
     {
-        public static int Main (int a, int b, int c)
+        public static object Main(string operation, params object[] args)
         {
-            if (a> b)
-                return a * Sum (b, c);
-            else
-                return Sum (a, b) * c;
+            switch (operation)
+            {
+                case "query":
+                    return Query((string)args[0]);
+                case "register":
+                    return Register((string)args[0], (byte[])args[1]);
+                case "delete":
+                    return Delete((string)args[0]);
+                default:
+                    return false;
+            }
         }
 
-        public static int Sum (int a, int b)
+        private static byte[] Query(string domain)
         {
-            return a + b;
+            return Storage.Get(Storage.CurrentContext, domain);
+        }
+
+        private static bool Register(string domain, byte[] owner)
+        {
+            if (!Runtime.CheckWitness(owner))
+                return false;
+
+            byte[] value = Storage.Get(Storage.CurrentContext, domain);
+
+            if (value != null)
+                return false;
+
+            Storage.Put(Storage.CurrentContext, domain, owner);
+            return true;
+        }
+        
+        private static bool Delete(string domain)
+        {
+            byte[] owner = Storage.Get(Storage.CurrentContext, domain);
+            
+            if (owner == null || !Runtime.CheckWitness(owner))
+                return false;
+            
+            Storage.Delete(Storage.CurrentContext, domain);
+            return true;
         }
     }
 }
