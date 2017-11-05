@@ -7,6 +7,8 @@ using Newtonsoft.Json;
 using Neo;
 using System.Collections;
 using Neo.Core;
+using System.Text;
+using System.Linq;
 
 namespace SmartPromise.Test
 {
@@ -82,18 +84,45 @@ namespace SmartPromise.Test
         [TestMethod]
         public void CanAddPromise()
         {
-            var owner = "AnkarenkoSergey";
-            var promise = new Promise
+            var data = service.storageContext.data;
+            byte[] promiseBytes = null;
+
+            Assert.AreEqual(data.Count, 0);
+
+            var owner1 = "owner1";
+            var owner2 = "owner2";
+            var owner3 = "owner3";
+
+            var promise1 = new Promise
+            {
+                Content = "Promise",
+                IsDone = false
+            };
+            var promise2 = new Promise
+            {
+                Content = "Promise",
+                IsDone = false
+            };
+            var promise3 = new Promise
             {
                 Content = "Promise",
                 IsDone = false
             };
             
-            Assert.AreEqual(AddPromise(owner, promise), true);
-            var data = service.storageContext.data;
-            Assert.AreEqual(AddPromise("a", promise), true);
-            Assert.AreEqual(AddPromise("b", promise), true);
-            var a = service.storageContext.data;
+            Assert.AreEqual(AddPromise(owner1, promise1), true);
+            Assert.AreEqual(data.Count, 1);
+            promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise1));
+            Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[owner1]), true);
+            
+            Assert.AreEqual(AddPromise(owner2, promise2), true);
+            Assert.AreEqual(data.Count, 2);
+            promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise2));
+            Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[owner2]), true);
+
+            Assert.AreEqual(AddPromise(owner3, promise3), true);
+            Assert.AreEqual(data.Count, 3);
+            promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise3));
+            Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[owner3]), true);
         }
     }
 }
