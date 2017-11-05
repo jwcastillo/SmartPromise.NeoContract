@@ -270,7 +270,6 @@
     <Compile Include="CustomInteropService.cs" />
     <Compile Include="CustomStorageClass.cs" />
     <Compile Include="CustomTransaction.cs" />
-    <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="SmartPromise.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
