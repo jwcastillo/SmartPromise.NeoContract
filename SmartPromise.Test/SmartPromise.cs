@@ -32,22 +32,28 @@ namespace SmartPromise.Test
         {
             /** CREATE FAKE PREVIOUS TRANSACTION */
             var initialTransaction = new CustomTransaction(TransactionType.ContractTransaction);
-            var transactionOutput = new Neo.Core.TransactionOutput
+            var transactionOutput = new TransactionOutput
             {
                 ScriptHash = UInt160.Parse("A518E4F561F37782B39AB4F28B8D538F47B8AA6C"),
-                Value = new Neo.Fixed8(10),
+                Value = new Fixed8(10),
                 AssetId = UInt256.Parse("B283C915F482DBC3A89189D865C4B42E74210BED735DCD307B1915C4E0A46C01")
 
             };
 
-            initialTransaction.Outputs = new Neo.Core.TransactionOutput[] { transactionOutput };
+            initialTransaction.Outputs = new TransactionOutput[] { transactionOutput };
 
             /** CREATE FAKE CURRENT TRANSACTION */
-            var coinRef = new CoinReference();
-            coinRef.PrevHash = initialTransaction.Hash;
-            coinRef.PrevIndex = 0;
-            var currentTransaction = new CustomTransaction(TransactionType.ContractTransaction);
-            currentTransaction.Inputs = new CoinReference[] { coinRef };
+            var coinRef = new CoinReference
+            {
+                PrevHash = initialTransaction.Hash,
+                PrevIndex = 0
+            };
+
+            var currentTransaction = new CustomTransaction(TransactionType.ContractTransaction)
+            {
+                Inputs = new CoinReference[] { coinRef }
+            };
+
             var hash = currentTransaction.Hash;
             
             service = new CustomInteropService();
