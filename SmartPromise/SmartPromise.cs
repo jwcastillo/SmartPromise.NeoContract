@@ -1,5 +1,6 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
+using System;
 using System.Numerics;
 
 namespace SmartPromise
@@ -7,11 +8,11 @@ namespace SmartPromise
     public class SmartPromise : SmartContract
     {
         
-        private static string KEY_PREFIX_COUNT() => "C";
+        public static string KEY_PREFIX_COUNT() => "C";
         private static string KEY_PREFIX_PROMISE() => "P";
         
-        private static string GetPromiseCountKey(string ownerKey) => KEY_PREFIX_COUNT() + ownerKey;
-        private static string GetPromiseKey(string ownerKey, BigInteger index) => 
+        public static string GetPromiseCountKey(string ownerKey) => KEY_PREFIX_COUNT() + ownerKey;
+        public static string GetPromiseKey(string ownerKey, BigInteger index) => 
             KEY_PREFIX_PROMISE() + ownerKey + index; 
             
         private static BigInteger GetPromiseCount(string ownerKey)
@@ -21,21 +22,30 @@ namespace SmartPromise
             return (res == null) ? 0 : res.AsBigInteger();
         }
         
-        public static bool Main(string operation, string ownerKey, string promiseJson)
+        public static bool Main(string operation, string ownerKey, 
+            string jpromise, BigInteger index)
         {
             switch (operation)
             {
                 case "replace":
-                    return Replace(ownerKey, promiseJson); 
+                    return Replace(ownerKey, jpromise, index); 
                 case "add":
-                    return Add(ownerKey, promiseJson);
+                    return Add(ownerKey, jpromise);
                 default:
                     return false;
             }
         }
         
-        private static bool Replace(string ownerKey, string promise)
+        private static bool Replace(string ownerKey, string promise, BigInteger index)
         {
+            string promiseKey = GetPromiseKey(ownerKey, index);
+
+            byte[] res = Storage.Get(Storage.CurrentContext, promiseKey);
+
+            if (res == null)
+                return false;
+
+            Storage.Put(Storage.CurrentContext, promiseKey, promise);
             return true;
         }
         
