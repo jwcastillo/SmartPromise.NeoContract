@@ -1,54 +1,54 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
-using System;
 using System.Numerics;
 
 namespace SmartPromise
 {
     public class SmartPromise : SmartContract
     {
-        public static object Main(string operation, params object[] args)
+        
+        private static string KEY_PREFIX_COUNT() => "C";
+        private static string KEY_PREFIX_PROMISE() => "P";
+        
+        private static string GetPromiseCountKey(string ownerKey) => KEY_PREFIX_COUNT() + ownerKey;
+        private static string GetPromiseKey(string ownerKey, BigInteger index) => 
+            KEY_PREFIX_PROMISE() + ownerKey + index; 
+            
+        private static BigInteger GetPromiseCount(string ownerKey)
+        {
+            string promiseCountKey = GetPromiseCountKey(ownerKey);
+            byte[] res = Storage.Get(Storage.CurrentContext, promiseCountKey);
+            return (res == null) ? 0 : res.AsBigInteger();
+        }
+        
+        public static bool Main(string operation, string ownerKey, string promiseJson)
         {
             switch (operation)
             {
-                case "query":
-                    return Query((string)args[0]);
-                case "register":
-                    return Register((string)args[0], (byte[])args[1]);
-                case "delete":
-                    return Delete((string)args[0]);
+                case "replace":
+                    return Replace(ownerKey, promiseJson); 
+                case "add":
+                    return Add(ownerKey, promiseJson);
                 default:
                     return false;
             }
         }
-
-        private static byte[] Query(string domain)
+        
+        private static bool Replace(string ownerKey, string promise)
         {
-            return Storage.Get(Storage.CurrentContext, domain);
-        }
-
-        private static bool Register(string domain, byte[] owner)
-        {
-            if (!Runtime.CheckWitness(owner))
-                return false;
-
-            byte[] value = Storage.Get(Storage.CurrentContext, domain);
-
-            if (value != null)
-                return false;
-
-            Storage.Put(Storage.CurrentContext, domain, owner);
             return true;
         }
         
-        private static bool Delete(string domain)
+        private static bool Add(string ownerKey, string promiseJson)
         {
-            byte[] owner = Storage.Get(Storage.CurrentContext, domain);
+            BigInteger count = GetPromiseCount(ownerKey);
+
+            string promiseKey = GetPromiseKey(ownerKey, count);
+            Storage.Put(Storage.CurrentContext, promiseKey, promiseJson);
+
+            if (count == 0)
+                count += 1;
             
-            if (owner == null || !Runtime.CheckWitness(owner))
-                return false;
-            
-            Storage.Delete(Storage.CurrentContext, domain);
             return true;
         }
     }

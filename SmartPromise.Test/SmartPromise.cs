@@ -1,67 +1,99 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Neo.VM;
 using System.IO;
 using Neo.Cryptography;
-using System.Numerics;
-using System.Text;
+using Neo.VM;
+using Newtonsoft.Json;
+using Neo;
+using System.Collections;
+using Neo.Core;
 
 namespace SmartPromise.Test
 {
     [TestClass]
     public class SmartPromise
     {
-        const string CONTRACT_ADDRESS = @"..\..\..\SmartPromise\bin\Debug\SmartPromise.avm";
+        private const string OPERATION_ADD_PROMISE = "add";
+        private const string CONTRACT_ADDRESS = @"..\..\..\SmartPromise\bin\Debug\SmartPromise.avm";
+        private CustomInteropService service;
 
-        private ExecutionEngine engine = new ExecutionEngine(null, Crypto.Default);
-        
+        [Serializable]
+        public class Promise
+        {
+            
+            public string Content { get; set; }
+            public bool IsDone { get; set; }
+        }
+
         [TestInitialize]
-        public void InitEngine()
+        public void InitInteropService()
         {
+            /** CREATE FAKE PREVIOUS TRANSACTION */
+            var initialTransaction = new CustomTransaction(TransactionType.ContractTransaction);
+            var transactionOutput = new Neo.Core.TransactionOutput
+            {
+                ScriptHash = UInt160.Parse("A518E4F561F37782B39AB4F28B8D538F47B8AA6C"),
+                Value = new Neo.Fixed8(10),
+                AssetId = UInt256.Parse("B283C915F482DBC3A89189D865C4B42E74210BED735DCD307B1915C4E0A46C01")
+
+            };
+
+            initialTransaction.Outputs = new Neo.Core.TransactionOutput[] { transactionOutput };
+
+            /** CREATE FAKE CURRENT TRANSACTION */
+            var coinRef = new CoinReference();
+            coinRef.PrevHash = initialTransaction.Hash;
+            coinRef.PrevIndex = 0;
+            var currentTransaction = new CustomTransaction(TransactionType.ContractTransaction);
+            currentTransaction.Inputs = new CoinReference[] { coinRef };
+            var hash = currentTransaction.Hash;
+            
+            service = new CustomInteropService();
+            service.storageContext.data = new Hashtable();
+
+            service.transactions.Add(initialTransaction.Hash.ToArray(), initialTransaction);
+            service.transactions.Add(currentTransaction.Hash.ToArray(), currentTransaction);
+        }
+        
+        private bool AddPromise(string owner, Promise promise)  
+        {
+
+            var jsonPromise = JsonConvert.SerializeObject(promise);
+
+            ExecutionEngine engine = new ExecutionEngine(null, Crypto.Default, null, service);
             engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
-        }
 
-        private string Query(string owner)
-        {
             using (ScriptBuilder sb = new ScriptBuilder())
             {
-                string operation = "query";
-                sb.EmitPush(Encoding.ASCII.GetBytes(owner));
-                sb.EmitPush(operation);
-                engine.LoadScript(sb.ToArray());
-            }
-
-            engine.Execute();
-            var result = engine.EvaluationStack.Peek().GetByteArray();
-            return Encoding.ASCII.GetString(result);
-
-        }
-
-        private bool Register(string domain, byte[] owner)
-        {
-            using (ScriptBuilder sb = new ScriptBuilder())
-            {
-                string operation = "register";
+                sb.EmitPush(jsonPromise);
                 sb.EmitPush(owner);
-                sb.EmitPush(Encoding.ASCII.GetBytes(domain));
-                sb.EmitPush(operation);
+                sb.EmitPush(OPERATION_ADD_PROMISE);
                 engine.LoadScript(sb.ToArray());
             }
-
+            
             engine.Execute();
-            return engine.EvaluationStack.Peek().GetBoolean();
+
+            Assert.AreEqual(engine.State, VMState.HALT);
+
+            var result = engine.EvaluationStack.Peek().GetBoolean();
+            return result;
         }
-
+        
         [TestMethod]
-        public void CanSaveDomains()
+        public void CanAddPromise()
         {
-            string owner = "";
-
-            Assert.AreEqual(Register("domain1", Encoding.ASCII.GetBytes("owner1")), true);
-            Assert.AreEqual(Register("domain2", Encoding.ASCII.GetBytes("owner2")), true);
-
-            owner = Query("domain1");
-            owner = Query("domain2");
+            var owner = "AnkarenkoSergey";
+            var promise = new Promise
+            {
+                Content = "Promise",
+                IsDone = false
+            };
+            
+            Assert.AreEqual(AddPromise(owner, promise), true);
+            var data = service.storageContext.data;
+            Assert.AreEqual(AddPromise("a", promise), true);
+            Assert.AreEqual(AddPromise("b", promise), true);
+            var a = service.storageContext.data;
         }
     }
 }
