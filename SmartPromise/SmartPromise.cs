@@ -22,15 +22,14 @@ namespace SmartPromise
             return (res == null) ? 0 : res.AsBigInteger();
         }
         
-        public static bool Main(string operation, string ownerKey, 
-            string jpromise, BigInteger index)
+        public static bool Main(string operation, params object[] args)
         {
             switch (operation)
             {
                 case "replace":
-                    return Replace(ownerKey, jpromise, index); 
+                    return Replace((string)args[0], (string)args[1], (BigInteger)args[2]); 
                 case "add":
-                    return Add(ownerKey, jpromise);
+                    return Add((string)args[0], (string)args[1]);
                 default:
                     return false;
             }

@@ -75,6 +75,8 @@ namespace SmartPromise.Test
                 sb.EmitPush(index);
                 sb.EmitPush(jsonPromise);
                 sb.EmitPush(owner);
+                sb.EmitPush(3);
+                sb.Emit(OpCode.PACK);
                 sb.EmitPush(OPERATION_REPLACE_PROMISE);
                 engine.LoadScript(sb.ToArray());
             }
@@ -96,9 +98,11 @@ namespace SmartPromise.Test
 
             using (ScriptBuilder sb = new ScriptBuilder())
             {
-                sb.EmitPush(-1);
+                
                 sb.EmitPush(jsonPromise);
                 sb.EmitPush(owner);
+                sb.EmitPush(2);
+                sb.Emit(OpCode.PACK);
                 sb.EmitPush(OPERATION_ADD_PROMISE);
                 engine.LoadScript(sb.ToArray());
             }
@@ -155,6 +159,8 @@ namespace SmartPromise.Test
                 sb.EmitPush("notExistingPromise");
                 sb.EmitPush("notExistingOwner");
                 sb.EmitPush(OPERATION_REPLACE_PROMISE);
+                sb.EmitPush(3);
+                sb.Emit(OpCode.PACK);
                 engine.LoadScript(sb.ToArray());
             }
 
