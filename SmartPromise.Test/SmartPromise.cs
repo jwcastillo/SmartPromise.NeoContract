@@ -9,6 +9,7 @@ using System.Collections;
 using Neo.Core;
 using System.Text;
 using System.Linq;
+using System.Numerics;
 
 namespace SmartPromise.Test
 {
@@ -23,9 +24,31 @@ namespace SmartPromise.Test
         [Serializable]
         public class Promise
         {
-            
+            public Guid Id { get; set; }
+            public string Title { get; set; }
             public string Content { get; set; }
-            public bool IsDone { get; set; }
+            public int Complicity { get; set; }
+            public bool IsCompleted { get; set; }
+            public DateTime Date { get; set; }            
+        }
+        
+        private string GetPromiseKey(string ownerKey, int i)
+        {
+            const string PROMISE_PREFIX = "P";
+            string index = Convert((new BigInteger(i)).ToByteArray());
+            return PROMISE_PREFIX + ownerKey + index;
+        }
+
+        private string GetPromiseCountKey(string ownerKey)
+        {
+            const string PROMISE_COUNT_PREFIX = "C";
+            return PROMISE_COUNT_PREFIX + ownerKey;
+        }
+
+        private string Convert(byte[] data)
+        {
+            char[] characters = data.Select(b => (char)b).ToArray();
+            return new string(characters);
         }
 
         [TestInitialize]
@@ -105,6 +128,7 @@ namespace SmartPromise.Test
                 sb.Emit(OpCode.PACK);
                 sb.EmitPush(OPERATION_ADD_PROMISE);
                 engine.LoadScript(sb.ToArray());
+                string v = sb.ToArray().ToHexString();
             }
             
             engine.Execute();
@@ -116,7 +140,7 @@ namespace SmartPromise.Test
         }
 
         [TestMethod]
-        public void ReplacesPromiseProperly()
+        public void CanCompletePromise()
         {
             var data = service.storageContext.data;
             byte[] promiseBytes = null;
@@ -125,26 +149,35 @@ namespace SmartPromise.Test
 
             var owner = "owner";
 
-            var promiseUndone = new Promise
+            var promiseNotCompleted = new Promise
             {
-                Content = "Promise1",
-                IsDone = false
+                Id = new Guid(),
+                Title = "Title",
+                Content = "Content",
+                IsCompleted = false,
+                Date = DateTime.Now,
+                Complicity = 3
             };
-            var promiseDone = new Promise
+            var promiseCompleted = new Promise
             {
-                Content = "Promise1",
-                IsDone = true
+                Id = new Guid(),
+                Title = "Title",
+                Content = "Content",
+                IsCompleted = true,
+                Date = DateTime.Now,
+                Complicity = 3
             };
 
-            Assert.AreEqual(AddPromise(owner, promiseUndone), true);
-            Assert.AreEqual(data.Count, 1);
-            promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseUndone));
-            Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[owner]), true);
+            Assert.AreEqual(AddPromise(owner, promiseNotCompleted), true);
+            Assert.AreEqual(data.Count, 2);
+            promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseNotCompleted));
+            string promiseKey = GetPromiseKey(owner, 0);
+            Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseKey]), true);
 
-            Assert.AreEqual(ReplacePromise(owner, promiseDone, 0), true);
-            Assert.AreEqual(data.Count, 1);
-            promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseDone));
-            Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[owner]), true);
+            Assert.AreEqual(ReplacePromise(owner, promiseCompleted, 0), true);
+            Assert.AreEqual(data.Count, 2);
+            promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseCompleted));
+            Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseKey]), true);
         }
 
         [TestMethod]
@@ -169,6 +202,94 @@ namespace SmartPromise.Test
             var result = engine.EvaluationStack.Peek().GetBoolean();
             Assert.AreEqual(result, false);
         }
+        
+        [TestMethod]
+        public void CanAddedMultiplePromisesToMultipleOwners()
+        {
+            var data = service.storageContext.data;
+            byte[] promiseBytes = null;
+            Assert.AreEqual(data.Count, 0);
+            
+            for (int i = 0; i < 100; ++i)
+            {
+                var owner = "owner" + i;
+                var promise = new Promise
+                {
+                    Id = new Guid(),
+                    Title = "Title" + i,
+                    Content = "Content" + i,
+                    IsCompleted = false,
+                    Date = DateTime.Now,
+                    Complicity = i % 5
+                };
+
+                Assert.AreEqual(AddPromise(owner, promise), true);
+                /**one record for promise data one record for promise count*/
+                Assert.AreEqual(data.Count, (i + 1) * 2);
+                string promiseId = GetPromiseKey(owner, 0);
+                promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise));
+                Assert.AreEqual(promiseBytes.SequenceEqual((byte[]) data[promiseId]), true);
+            }
+        }
+
+        [TestMethod]
+        public void CanCountPromisesProperly()
+        {
+            var data = service.storageContext.data;
+            Assert.AreEqual(data.Count, 0);
+            var owner = "owner";
+            var promise = new Promise
+            {
+                Id = new Guid(),
+                Title = "Title",
+                Content = "Content",
+                IsCompleted = false,
+                Date = DateTime.Now,
+                Complicity = 0
+            };
+
+            int curCount = data.Count;
+            for (int i = 0; i < 1; ++i)
+            {
+                Assert.AreEqual(AddPromise(owner, promise), true);
+                Assert.AreEqual(data.Count, curCount + i + 2);
+            }
+            curCount = data.Count;
+            for (int i = 0; i < 100; ++i)
+            {
+                Assert.AreEqual(AddPromise(owner + i, promise), true);
+                Assert.AreEqual(data.Count, curCount + (i + 1)*2);
+            }
+        }
+
+        [TestMethod]
+        public void CanAddMultiplePromisesToOwner()
+        {
+            var data = service.storageContext.data;
+            byte[] promiseBytes = null;
+            Assert.AreEqual(data.Count, 0);
+            var owner = "owner";
+           
+            for (int i = 0; i < 100; ++i)
+            {
+                var promise = new Promise
+                {
+                    Id = new Guid(),
+                    Title = "Title" + i,
+                    Content = "Content" + i,
+                    IsCompleted = false,
+                    Date = DateTime.Now,
+                    Complicity = i % 5
+                };
+
+                Assert.AreEqual(AddPromise(owner, promise), true);
+                /** +1 to store promises count*/
+                Assert.AreEqual(data.Count, i + 2);
+                string promiseId = GetPromiseKey(owner, i);
+                promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise));
+                Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseId]), true);
+            }
+        }
 
         [TestMethod]
         public void ReturnsFalseWhenInvalidOperation()
@@ -178,9 +299,10 @@ namespace SmartPromise.Test
 
             using (ScriptBuilder sb = new ScriptBuilder())
             {
-                sb.EmitPush(-1);
                 sb.EmitPush("arg1");
                 sb.EmitPush("arg2");
+                sb.EmitPush(2);
+                sb.Emit(OpCode.PACK);
                 sb.EmitPush("invalidoperation");
                 engine.LoadScript(sb.ToArray());
             }
@@ -191,48 +313,6 @@ namespace SmartPromise.Test
             Assert.AreEqual(result, false);
         }
 
-        [TestMethod]
-        public void AddsPromiseProperly()
-        {
-            var data = service.storageContext.data;
-            byte[] promiseBytes = null;
-
-            Assert.AreEqual(data.Count, 0);
-
-            var owner1 = "owner1";
-            var owner2 = "owner2";
-            var owner3 = "owner3";
-
-            var promise1 = new Promise
-            {
-                Content = "Promise1",
-                IsDone = false
-            };
-            var promise2 = new Promise
-            {
-                Content = "Promise2",
-                IsDone = false
-            };
-            var promise3 = new Promise
-            {
-                Content = "Promise3",
-                IsDone = false
-            };
-            
-            Assert.AreEqual(AddPromise(owner1, promise1), true);
-            Assert.AreEqual(data.Count, 1);
-            promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise1));
-            Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[owner1]), true);
-            
-            Assert.AreEqual(AddPromise(owner2, promise2), true);
-            Assert.AreEqual(data.Count, 2);
-            promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise2));
-            Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[owner2]), true);
-
-            Assert.AreEqual(AddPromise(owner3, promise3), true);
-            Assert.AreEqual(data.Count, 3);
-            promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise3));
-            Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[owner3]), true);
-        }
+        
     }
 }

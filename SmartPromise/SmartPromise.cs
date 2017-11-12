@@ -7,19 +7,33 @@ namespace SmartPromise
 {
     public class SmartPromise : SmartContract
     {
-        
+
         public static string KEY_PREFIX_COUNT() => "C";
         private static string KEY_PREFIX_PROMISE() => "P";
-        
+
         public static string GetPromiseCountKey(string ownerKey) => KEY_PREFIX_COUNT() + ownerKey;
-        public static string GetPromiseKey(string ownerKey, BigInteger index) => 
-            KEY_PREFIX_PROMISE() + ownerKey + index; 
+
+        public static string GetPromiseKey(string ownerKey, BigInteger index) {
+            /**When concatinatins more than 2 strings in one expression, only two of them concatinates*/
+            
+            string part = KEY_PREFIX_PROMISE() + ownerKey;
+
+            if (index == 0)
+                part += "\0";
+
+            return part + index.AsByteArray().AsString();
+        }
             
         private static BigInteger GetPromiseCount(string ownerKey)
         {
             string promiseCountKey = GetPromiseCountKey(ownerKey);
-            byte[] res = Storage.Get(Storage.CurrentContext, promiseCountKey);
-            return (res == null) ? 0 : res.AsBigInteger();
+            return Storage.Get(Storage.CurrentContext, promiseCountKey).AsBigInteger();
+        }
+
+        private static void PutPromiseCount(string ownerKey, BigInteger count)
+        {
+            string promiseCountKey = GetPromiseCountKey(ownerKey);
+            Storage.Put(Storage.CurrentContext, promiseCountKey, count);
         }
         
         public static bool Main(string operation, params object[] args)
@@ -51,13 +65,12 @@ namespace SmartPromise
         private static bool Add(string ownerKey, string promiseJson)
         {
             BigInteger count = GetPromiseCount(ownerKey);
-
             string promiseKey = GetPromiseKey(ownerKey, count);
             Storage.Put(Storage.CurrentContext, promiseKey, promiseJson);
-
-            if (count == 0)
-                count += 1;
             
+            count += 1;
+
+            PutPromiseCount(ownerKey, count);
             return true;
         }
     }
