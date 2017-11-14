@@ -43,7 +43,7 @@ namespace SmartPromise.Test
             return prefix + main + postfix;
         }
 
-        private string GetPromiseCountKey(string ownerKey)
+        private string GetPromiseCounterKey(string ownerKey)
         {
             const char PROMISE_PREFIX = 'C';
             var prefix = Convert.ToByte(PROMISE_PREFIX).ToString("x2");
@@ -187,6 +187,58 @@ namespace SmartPromise.Test
         }
 
         [TestMethod]
+        public void PromisesSizeCountesProperly()
+        {
+            scriptContainer = CreateTransaction(HASHES[0]);
+            var data = service.storageContext.data;
+            Assert.AreEqual(data.Count, 0);
+            string promiseCounterKey;
+            byte[] ba;
+            int counter;
+
+            var promise = new Promise
+            {
+                Id = 1,
+                Title = "Title",
+                Content = "Content",
+                Status = PROMISE_STATUS.NOT_COMPLTED,
+                Date = DateTime.Now,
+                Complicity = Promise.MAX_COMPLICITY,
+                Proof = ""
+            };
+
+            for (int i = 1; i <= 100; ++i)
+            {
+                Assert.AreEqual(AddPromise(promise), true);
+                /** EVERY NEW PROMISE CREATES NEW RECORD IN STORAGE PLUS ONE RECORD TO STORE PROMISES COUNT*/
+                Assert.AreEqual(data.Count, i + 1);
+                
+                promiseCounterKey = GetPromiseCounterKey(HASHES[0]);
+                ba = (byte[])data[promiseCounterKey];
+                counter = (int)ba[0];
+                Assert.AreEqual(counter, i);
+            }
+
+            /**ANOTHER USER MAKES PROMISE*/
+            scriptContainer = CreateTransaction(HASHES[1]);
+            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(data.Count, 101 + 2);
+            promiseCounterKey = GetPromiseCounterKey(HASHES[1]);
+            ba = (byte[])data[promiseCounterKey];
+            counter = (int)ba[0];
+            Assert.AreEqual(counter, 1);
+
+            /**PREVIOUS USER MAKES PROMISE*/
+            scriptContainer = CreateTransaction(HASHES[0]);
+            promiseCounterKey = GetPromiseCounterKey(HASHES[0]);
+            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(data.Count, 103 + 1);
+            ba = (byte[])data[promiseCounterKey];
+            counter = (int)ba[0];
+            Assert.AreEqual(counter, 101);
+        }
+
+        [TestMethod]
         public void ReturnsFalseWhenReplaceNotExistingPromise()
         {
             scriptContainer = CreateTransaction(HASHES[0]);
@@ -210,7 +262,7 @@ namespace SmartPromise.Test
         }
 
         [TestMethod]
-        public void CanAddedMultiplePromisesToMultipleOwners()
+        public void CanAddMultiplePromisesToMultipleOwners()
         {
             
             var data = service.storageContext.data;

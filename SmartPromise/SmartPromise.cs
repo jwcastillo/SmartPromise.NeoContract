@@ -31,7 +31,7 @@ namespace SmartPromise
         {
             string promiseCounterKey = GetPromiseCounterKey(senderSH);
             var res = Storage.Get(Storage.CurrentContext, promiseCounterKey);
-            return (res.Length == 0)? 1 : res.AsBigInteger();
+            return (res.Length == 0)? 0 : res.AsBigInteger();
         }
 
         /**PUTS PROMISE COUNTER IN STORAGE*/
@@ -77,7 +77,7 @@ namespace SmartPromise
 
             if (res == null)
                 return false;
-
+            //size is 2 when it actually 2
             Storage.Put(Storage.CurrentContext, key, promise);
             return true;
         }
@@ -90,12 +90,13 @@ namespace SmartPromise
         private static bool Add(string senderSH, string promiseJson)
         {
             BigInteger counter = GetPromiseCounter(senderSH);
-            
+
+            counter += 1;
+
             string key = GetPromiseKey(senderSH, counter);
             Runtime.Notify("Add. PromiseKey : ", key, " Counter : ", counter);
             Storage.Put(Storage.CurrentContext, key, promiseJson);
             
-            counter += 1;
             PutPromiseCounter(senderSH, counter);
             return true;
         }
