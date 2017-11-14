@@ -1,5 +1,6 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
+using Neo.SmartContract.Framework.Services.System;
 using System;
 using System.Numerics;
 
@@ -7,70 +8,95 @@ namespace SmartPromise
 {
     public class SmartPromise : SmartContract
     {
+        /**
+         * DIFFERENT TYPES OF DATA IN STORAGE HAVE DIFFERENT PREFIXES
+           'P' - FOR STORING PROMISE DATA
+           'C' - FOR STORING PROMISES COUNTER
+         */
+        public static char KEY_PREFIX_COUNT() => 'C';
+        private static char KEY_PREFIX_PROMISE() => 'P';
 
-        public static string KEY_PREFIX_COUNT() => "C";
-        private static string KEY_PREFIX_PROMISE() => "P";
-
-        public static string GetPromiseCountKey(string ownerKey) => KEY_PREFIX_COUNT() + ownerKey;
-
-        public static string GetPromiseKey(string ownerKey, BigInteger index) {
-            /**When concatinatins more than 2 strings in one expression, only two of them concatinates*/
-            
-            string part = KEY_PREFIX_PROMISE() + ownerKey;
-
-            if (index == 0)
-                part += "\0";
-
-            return part + index.AsByteArray().AsString();
+        public static string GetPromiseCounterKey(string senderSH) => KEY_PREFIX_COUNT() + senderSH;
+        
+        public static string GetPromiseKey(string senderSH, BigInteger index) {
+            /**
+             * WHEN CONCATINATING MORE THAN TWO STRINGS WITHIN ONE EXPRESSION, 
+             * ONLY TWO OF THEM CONCATINATES
+             */
+            string part = KEY_PREFIX_PROMISE() + senderSH;
+            return part + index;
         }
             
-        private static BigInteger GetPromiseCount(string ownerKey)
+        private static BigInteger GetPromiseCounter(string senderSH)
         {
-            string promiseCountKey = GetPromiseCountKey(ownerKey);
-            return Storage.Get(Storage.CurrentContext, promiseCountKey).AsBigInteger();
+            string promiseCounterKey = GetPromiseCounterKey(senderSH);
+            var res = Storage.Get(Storage.CurrentContext, promiseCounterKey);
+            return (res.Length == 0)? 1 : res.AsBigInteger();
         }
 
-        private static void PutPromiseCount(string ownerKey, BigInteger count)
+        /**PUTS PROMISE COUNTER IN STORAGE*/
+        private static void PutPromiseCounter(string senderSH, BigInteger counter)
         {
-            string promiseCountKey = GetPromiseCountKey(ownerKey);
-            Storage.Put(Storage.CurrentContext, promiseCountKey, count);
+            string key = GetPromiseCounterKey(senderSH);
+            Storage.Put(Storage.CurrentContext, key, counter);
         }
         
+        private static byte[] GetSenderScriptHash()
+        {
+            Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
+            TransactionOutput[] reference = tx.GetReferences();
+            TransactionOutput firstReference = reference[0];
+            return firstReference.ScriptHash;
+        }
+
         public static bool Main(string operation, params object[] args)
         {
+            /**ALL KEYS USED FOR DATA STORING IN BLOCKCHAIN WOULD BE BASED ON SENDER SCRIPT HASH*/
+            byte[] senderSH = GetSenderScriptHash();
+
             switch (operation)
             {
                 case "replace":
-                    return Replace((string)args[0], (string)args[1], (BigInteger)args[2]); 
+                    return Replace(senderSH.AsString(), (string)args[0], (BigInteger)args[1]); 
                 case "add":
-                    return Add((string)args[0], (string)args[1]);
+                    return Add(senderSH.AsString(), (string)args[0]);
                 default:
                     return false;
             }
         }
         
-        private static bool Replace(string ownerKey, string promise, BigInteger index)
+        /**
+         * FINDS PROMISE BY INDEX AND REPLACE IT WITH NEW ONE
+         * RETURNS FALSE, IF HAVEN'T FOUND PROMISE TO REPLACE
+         */
+        private static bool Replace(string senderSH, string promise, BigInteger index)
         {
-            string promiseKey = GetPromiseKey(ownerKey, index);
+            string key = GetPromiseKey(senderSH, index);
 
-            byte[] res = Storage.Get(Storage.CurrentContext, promiseKey);
+            byte[] res = Storage.Get(Storage.CurrentContext, key);
 
             if (res == null)
                 return false;
 
-            Storage.Put(Storage.CurrentContext, promiseKey, promise);
+            Storage.Put(Storage.CurrentContext, key, promise);
             return true;
         }
         
-        private static bool Add(string ownerKey, string promiseJson)
+        /**
+         * PUTS NEW PROMISE IN USER'S STORAGE
+         * UPDATES PROMISES COUNTER AND PUTS IT IN STORAGE
+         * (PROMISES ARE NUMERATED FROM 1)
+         */
+        private static bool Add(string senderSH, string promiseJson)
         {
-            BigInteger count = GetPromiseCount(ownerKey);
-            string promiseKey = GetPromiseKey(ownerKey, count);
-            Storage.Put(Storage.CurrentContext, promiseKey, promiseJson);
+            BigInteger counter = GetPromiseCounter(senderSH);
             
-            count += 1;
-
-            PutPromiseCount(ownerKey, count);
+            string key = GetPromiseKey(senderSH, counter);
+            Runtime.Notify("Add. PromiseKey : ", key, " Counter : ", counter);
+            Storage.Put(Storage.CurrentContext, key, promiseJson);
+            
+            counter += 1;
+            PutPromiseCounter(senderSH, counter);
             return true;
         }
     }

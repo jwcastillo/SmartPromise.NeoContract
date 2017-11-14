@@ -1,10 +1,4 @@
-﻿/*
- * 
- * Thanks to user tekn (https://neosmarteconomy.slack.com) for helping me!
- * This code took from there https://github.com/aphtoken/NeoContractTester/tree/e8efbeccb836ea2e8252585da7bdcd56dfad042a
- * 
- */
-using Neo;
+﻿using Neo;
 using Neo.Core;
 using Neo.VM;
 using System.Collections;
@@ -18,7 +12,7 @@ namespace SmartPromise.Test
 
         public CustomStorageContext storageContext;
         public Hashtable transactions;
-
+        
         public CustomInteropService()
         {
             Register("Neo.Storage.GetContext", Storage_GetContext);
@@ -28,6 +22,7 @@ namespace SmartPromise.Test
             Register("Neo.Transaction.GetInputs", Transaction_GetInputs);
             Register("Neo.Transaction.GetOutputs", Transaction_GetOutputs);
             Register("Neo.Blockchain.GetTransaction", Blockchain_GetTransaction);
+            Register("Neo.Transaction.GetReferences", Transaction_GetReferences);
             Register("Neo.Input.GetHash", Input_GetHash);
             Register("Neo.Input.GetIndex", Input_GetIndex);
             Register("Neo.Output.GetScriptHash", Output_GetScriptHash);
@@ -36,8 +31,11 @@ namespace SmartPromise.Test
             transactions = new Hashtable();
         }
 
+
         protected virtual bool Runtime_CheckWitness(ExecutionEngine engine)
-        {
+        {          
+            StackItem si = engine.EvaluationStack.Pop();
+            engine.EvaluationStack.Push(true);
             return true;
         }
 
@@ -51,10 +49,10 @@ namespace SmartPromise.Test
         protected bool Storage_Get(ExecutionEngine engine)
         {
             CustomStorageContext context = engine.EvaluationStack.Pop().GetInterface<CustomStorageContext>();
-            byte[] key = engine.EvaluationStack.Pop().GetByteArray();
+            var key = engine.EvaluationStack.Pop().GetByteArray().ToHexString();
             StorageItem item = new StorageItem
             {
-                Value = (byte[])context.data[Encoding.UTF8.GetString(key)]
+                Value = (byte[])context.data[key]
             };
             engine.EvaluationStack.Push(item?.Value ?? new byte[0]);
             return true;
@@ -63,10 +61,12 @@ namespace SmartPromise.Test
         protected bool Storage_Put(ExecutionEngine engine)
         {
             CustomStorageContext context = engine.EvaluationStack.Pop().GetInterface<CustomStorageContext>();
-            byte[] key = engine.EvaluationStack.Pop().GetByteArray();
-            if (key.Length > 1024) return false;
+            var key = engine.EvaluationStack.Pop().GetByteArray().ToHexString();
+            if (key.Length > 1024)
+                return false;
             byte[] value = engine.EvaluationStack.Pop().GetByteArray();
-            context.data[Encoding.UTF8.GetString(key)] = value;
+          
+            context.data[key] = value;
             return true;
         }
 
@@ -97,7 +97,8 @@ namespace SmartPromise.Test
         protected virtual bool Output_GetScriptHash(ExecutionEngine engine)
         {
             TransactionOutput output = engine.EvaluationStack.Pop().GetInterface<TransactionOutput>();
-            if (output == null) return false;
+            if (output == null)
+                return false;
             engine.EvaluationStack.Push(output.ScriptHash.ToArray());
             return true;
         }
@@ -115,6 +116,18 @@ namespace SmartPromise.Test
             Transaction tx = engine.EvaluationStack.Pop().GetInterface<Transaction>();
             if (tx == null) return false;
             engine.EvaluationStack.Push(tx.Outputs.Select(p => StackItem.FromInterface(p)).ToArray());
+            return true;
+        }
+
+        protected virtual bool Transaction_GetReferences(ExecutionEngine engine)
+        {
+            Transaction tx = engine.EvaluationStack.Pop().GetInterface<Transaction>();
+            if (tx == null)
+                return false;
+            CustomTransaction ctx = tx as CustomTransaction;
+            if (ctx == null)
+                return false;
+            engine.EvaluationStack.Push(ctx.CustomReferences.Select(p => StackItem.FromInterface(p)).ToArray());
             return true;
         }
 

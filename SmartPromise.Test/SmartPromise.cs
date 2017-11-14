@@ -1,4 +1,11 @@
-﻿using System;
+﻿/**
+ * 
+ * THANKS TO USER tekn (https://neosmarteconomy.slack.com) 
+ * HE GAVE ME AN IDEA OF HOW TO TEST SMART CONTRACTS
+ * https://github.com/aphtoken/NeoContractTester/tree/e8efbeccb836ea2e8252585da7bdcd56dfad042a
+ * 
+ */
+using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.IO;
 using Neo.Cryptography;
@@ -9,7 +16,6 @@ using System.Collections;
 using Neo.Core;
 using System.Text;
 using System.Linq;
-using System.Numerics;
 
 namespace SmartPromise.Test
 {
@@ -19,51 +25,53 @@ namespace SmartPromise.Test
         private const string OPERATION_ADD_PROMISE = "add";
         private const string OPERATION_REPLACE_PROMISE = "replace";
         private const string CONTRACT_ADDRESS = @"..\..\..\SmartPromise\bin\Debug\SmartPromise.avm";
+        private string[] HASHES = new string[] {
+            "0x22a4d553282d7eaf53538eb8ccb27e842d0d90b6",
+            "0xbc89c04256bd0a5b9d53a0d239d615a8734bc459",
+            "0x1e66cccfed7a0a9f4bc9bf6c92b286acef65fc77",
+            "0xa42abb913fa551de74fd4626ad4a789a2987e52e"
+        };
         private CustomInteropService service;
+        private IScriptContainer scriptContainer;
 
-        [Serializable]
-        public class Promise
-        {
-            public Guid Id { get; set; }
-            public string Title { get; set; }
-            public string Content { get; set; }
-            public int Complicity { get; set; }
-            public bool IsCompleted { get; set; }
-            public DateTime Date { get; set; }            
-        }
-        
         private string GetPromiseKey(string ownerKey, int i)
         {
-            const string PROMISE_PREFIX = "P";
-            string index = Convert((new BigInteger(i)).ToByteArray());
-            return PROMISE_PREFIX + ownerKey + index;
+            const char PROMISE_PREFIX = 'P';
+            var prefix = Convert.ToByte(PROMISE_PREFIX).ToString("x2");
+            var main = UInt160.Parse(ownerKey).ToArray().ToHexString();
+            var postfix = Convert.ToByte(i).ToString("x2");
+            return prefix + main + postfix;
         }
 
         private string GetPromiseCountKey(string ownerKey)
         {
-            const string PROMISE_COUNT_PREFIX = "C";
-            return PROMISE_COUNT_PREFIX + ownerKey;
+            const char PROMISE_PREFIX = 'C';
+            var prefix = Convert.ToByte(PROMISE_PREFIX).ToString("x2");
+            var main = UInt160.Parse(ownerKey).ToArray().ToHexString();
+            return prefix + main;
         }
 
-        private string Convert(byte[] data)
-        {
-            char[] characters = data.Select(b => (char)b).ToArray();
-            return new string(characters);
-        }
-
-        [TestInitialize]
-        public void InitInteropService()
+        private Transaction CreateTransaction(string scriptHash)
         {
             /** CREATE FAKE PREVIOUS TRANSACTION */
             var initialTransaction = new CustomTransaction(TransactionType.ContractTransaction);
             var transactionOutput = new TransactionOutput
             {
-                ScriptHash = UInt160.Parse("A518E4F561F37782B39AB4F28B8D538F47B8AA6C"),
+                ScriptHash = UInt160.Parse(scriptHash),
                 Value = new Fixed8(10),
                 AssetId = UInt256.Parse("B283C915F482DBC3A89189D865C4B42E74210BED735DCD307B1915C4E0A46C01")
             };
 
+            var reference = new TransactionOutput
+            {
+                ScriptHash = UInt160.Parse(scriptHash),
+                Value = new Fixed8(3),
+                AssetId = UInt256.Parse("B283C915F482DBC3A89189D865C4B42E74210BED735DCD307B1915C4E0A46C01")
+            };
+            
             initialTransaction.Outputs = new TransactionOutput[] { transactionOutput };
+            /**FOR TESTING PURPOSE*/
+            initialTransaction.CustomReferences = new TransactionOutput[] { reference };
 
             /** CREATE FAKE CURRENT TRANSACTION */
             var coinRef = new CoinReference
@@ -77,28 +85,28 @@ namespace SmartPromise.Test
                 Inputs = new CoinReference[] { coinRef }
             };
 
-            var hash = currentTransaction.Hash;
-            
-            service = new CustomInteropService();
-            service.storageContext.data = new Hashtable();
-
-            service.transactions.Add(initialTransaction.Hash.ToArray(), initialTransaction);
-            service.transactions.Add(currentTransaction.Hash.ToArray(), currentTransaction);
+            return initialTransaction;
         }
 
-        private bool ReplacePromise(string owner, Promise promise, int index)
+        [TestInitialize]
+        public void InitInteropService()
+        {
+            service = new CustomInteropService();
+            service.storageContext.data = new Hashtable();
+        }
+
+        private bool ReplacePromise(Promise promise, int index)
         {
             var jsonPromise = JsonConvert.SerializeObject(promise);
 
-            ExecutionEngine engine = new ExecutionEngine(null, Crypto.Default, null, service);
+            ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
             engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
 
             using (ScriptBuilder sb = new ScriptBuilder())
             {
                 sb.EmitPush(index);
                 sb.EmitPush(jsonPromise);
-                sb.EmitPush(owner);
-                sb.EmitPush(3);
+                sb.EmitPush(2);
                 sb.Emit(OpCode.PACK);
                 sb.EmitPush(OPERATION_REPLACE_PROMISE);
                 engine.LoadScript(sb.ToArray());
@@ -111,26 +119,24 @@ namespace SmartPromise.Test
             var result = engine.EvaluationStack.Peek().GetBoolean();
             return result;
         }
-        
-        private bool AddPromise(string owner, Promise promise)  
+
+        private bool AddPromise(Promise promise)
         {
             var jsonPromise = JsonConvert.SerializeObject(promise);
 
-            ExecutionEngine engine = new ExecutionEngine(null, Crypto.Default, null, service);
+            ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
             engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
 
             using (ScriptBuilder sb = new ScriptBuilder())
             {
-                
+
                 sb.EmitPush(jsonPromise);
-                sb.EmitPush(owner);
-                sb.EmitPush(2);
+                sb.EmitPush(1);
                 sb.Emit(OpCode.PACK);
                 sb.EmitPush(OPERATION_ADD_PROMISE);
                 engine.LoadScript(sb.ToArray());
-                string v = sb.ToArray().ToHexString();
             }
-            
+
             engine.Execute();
 
             Assert.AreEqual(engine.State, VMState.HALT);
@@ -142,39 +148,39 @@ namespace SmartPromise.Test
         [TestMethod]
         public void CanCompletePromise()
         {
+            scriptContainer = CreateTransaction(HASHES[0]);
             var data = service.storageContext.data;
             byte[] promiseBytes = null;
-
             Assert.AreEqual(data.Count, 0);
-
-            var owner = "owner";
-
+            
             var promiseNotCompleted = new Promise
             {
-                Id = new Guid(),
+                Id = 1,
                 Title = "Title",
                 Content = "Content",
-                IsCompleted = false,
+                Status = PROMISE_STATUS.NOT_COMPLTED,
                 Date = DateTime.Now,
-                Complicity = 3
+                Complicity = 3,
+                Proof = ""
             };
             var promiseCompleted = new Promise
             {
-                Id = new Guid(),
+                Id = 2,
                 Title = "Title",
                 Content = "Content",
-                IsCompleted = true,
+                Status = PROMISE_STATUS.COMPLTED,
                 Date = DateTime.Now,
-                Complicity = 3
+                Complicity = 3,
+                Proof = "COMPLETED"
             };
 
-            Assert.AreEqual(AddPromise(owner, promiseNotCompleted), true);
+            Assert.AreEqual(AddPromise(promiseNotCompleted), true);
             Assert.AreEqual(data.Count, 2);
             promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseNotCompleted));
-            string promiseKey = GetPromiseKey(owner, 0);
+            string promiseKey = GetPromiseKey(HASHES[0], 1);
             Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseKey]), true);
 
-            Assert.AreEqual(ReplacePromise(owner, promiseCompleted, 0), true);
+            Assert.AreEqual(ReplacePromise(promiseCompleted, 1), true);
             Assert.AreEqual(data.Count, 2);
             promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseCompleted));
             Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseKey]), true);
@@ -183,17 +189,17 @@ namespace SmartPromise.Test
         [TestMethod]
         public void ReturnsFalseWhenReplaceNotExistingPromise()
         {
-            ExecutionEngine engine = new ExecutionEngine(null, Crypto.Default, null, service);
+            scriptContainer = CreateTransaction(HASHES[0]);
+            ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
             engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
 
             using (ScriptBuilder sb = new ScriptBuilder())
             {
                 sb.EmitPush(10);
                 sb.EmitPush("notExistingPromise");
-                sb.EmitPush("notExistingOwner");
-                sb.EmitPush(OPERATION_REPLACE_PROMISE);
-                sb.EmitPush(3);
+                sb.EmitPush(2);
                 sb.Emit(OpCode.PACK);
+                sb.EmitPush(OPERATION_REPLACE_PROMISE);
                 engine.LoadScript(sb.ToArray());
             }
 
@@ -202,90 +208,113 @@ namespace SmartPromise.Test
             var result = engine.EvaluationStack.Peek().GetBoolean();
             Assert.AreEqual(result, false);
         }
-        
+
         [TestMethod]
         public void CanAddedMultiplePromisesToMultipleOwners()
         {
+            
             var data = service.storageContext.data;
             byte[] promiseBytes = null;
             Assert.AreEqual(data.Count, 0);
-            
-            for (int i = 0; i < 100; ++i)
+
+            for (int i = 0; i < HASHES.Length; ++i)
             {
-                var owner = "owner" + i;
+                /**CHANGE USER SCRIPT HASH*/
+                scriptContainer = CreateTransaction(HASHES[i]);
                 var promise = new Promise
                 {
-                    Id = new Guid(),
+                    Id = i,
                     Title = "Title" + i,
                     Content = "Content" + i,
-                    IsCompleted = false,
+                    Status = PROMISE_STATUS.NOT_COMPLTED,
                     Date = DateTime.Now,
-                    Complicity = i % 5
+                    Complicity = i % Promise.MAX_COMPLICITY,
+                    Proof = ""
                 };
 
-                Assert.AreEqual(AddPromise(owner, promise), true);
-                /**one record for promise data one record for promise count*/
+                Assert.AreEqual(AddPromise(promise), true);
+                /**ONE RECORD FOR PROMISE DATA AND ONE RECORD FOR PROMISES COUNTER*/
                 Assert.AreEqual(data.Count, (i + 1) * 2);
-                string promiseId = GetPromiseKey(owner, 0);
+                /**PROMISES ID NUMERATION STARTS WITH ONE*/
+                string promiseId = GetPromiseKey(HASHES[i], 1);
                 promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise));
-                Assert.AreEqual(promiseBytes.SequenceEqual((byte[]) data[promiseId]), true);
+                Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseId]), true);
             }
         }
-
+        
         [TestMethod]
         public void CanCountPromisesProperly()
         {
+            scriptContainer = CreateTransaction(HASHES[0]);
             var data = service.storageContext.data;
             Assert.AreEqual(data.Count, 0);
-            var owner = "owner";
+            
             var promise = new Promise
             {
-                Id = new Guid(),
+                Id = 0,
                 Title = "Title",
                 Content = "Content",
-                IsCompleted = false,
+                Status = PROMISE_STATUS.NOT_COMPLTED,
                 Date = DateTime.Now,
-                Complicity = 0
+                Complicity = 0,
+                Proof = ""
             };
 
-            int curCount = data.Count;
-            for (int i = 0; i < 1; ++i)
-            {
-                Assert.AreEqual(AddPromise(owner, promise), true);
-                Assert.AreEqual(data.Count, curCount + i + 2);
-            }
-            curCount = data.Count;
-            for (int i = 0; i < 100; ++i)
-            {
-                Assert.AreEqual(AddPromise(owner + i, promise), true);
-                Assert.AreEqual(data.Count, curCount + (i + 1)*2);
-            }
-        }
+            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(data.Count, 2);
 
+            /** ANOTHER USER INVOKED CONTRACT*/
+            scriptContainer = CreateTransaction(HASHES[1]);
+            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(data.Count, 2 + 2);
+
+            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(data.Count, 4 + 1);
+
+            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(data.Count, 5 + 1);
+
+            /** ONE MORE USER INVOKED CONTRACT*/
+            scriptContainer = CreateTransaction(HASHES[2]);
+            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(data.Count, 6 + 2);
+
+            /** PREVIOUS USER INVOKED CONTRACT*/
+            scriptContainer = CreateTransaction(HASHES[0]);
+            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(data.Count, 8 + 1);
+
+            /** ONE MORE USER INVOKED CONTRACT*/
+            scriptContainer = CreateTransaction(HASHES[3]);
+            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(data.Count, 9 + 2);
+        }
+        
         [TestMethod]
         public void CanAddMultiplePromisesToOwner()
         {
+            scriptContainer = CreateTransaction(HASHES[0]);
             var data = service.storageContext.data;
             byte[] promiseBytes = null;
             Assert.AreEqual(data.Count, 0);
-            var owner = "owner";
-           
-            for (int i = 0; i < 100; ++i)
+
+            for (int i = 1; i <= 100; ++i)
             {
                 var promise = new Promise
                 {
-                    Id = new Guid(),
+                    Id = i,
                     Title = "Title" + i,
                     Content = "Content" + i,
-                    IsCompleted = false,
+                    Status = PROMISE_STATUS.NOT_COMPLTED,
                     Date = DateTime.Now,
-                    Complicity = i % 5
+                    Complicity = i % Promise.MAX_COMPLICITY,
+                    Proof = ""
                 };
 
-                Assert.AreEqual(AddPromise(owner, promise), true);
-                /** +1 to store promises count*/
-                Assert.AreEqual(data.Count, i + 2);
-                string promiseId = GetPromiseKey(owner, i);
+                Assert.AreEqual(AddPromise(promise), true);
+                /** EVERY NEW PROMISE CREATES NEW RECORD IN STORAGE PLUS ONE RECORD TO STORE PROMISES COUNT*/
+                Assert.AreEqual(data.Count, i + 1);
+                string promiseId = GetPromiseKey(HASHES[0], i);
                 promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise));
                 Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseId]), true);
             }
@@ -294,7 +323,8 @@ namespace SmartPromise.Test
         [TestMethod]
         public void ReturnsFalseWhenInvalidOperation()
         {
-            ExecutionEngine engine = new ExecutionEngine(null, Crypto.Default, null, service);
+            scriptContainer = CreateTransaction(HASHES[0]);
+            ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
             engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
 
             using (ScriptBuilder sb = new ScriptBuilder())
