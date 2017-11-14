@@ -94,7 +94,6 @@ namespace SmartPromise
             counter += 1;
 
             string key = GetPromiseKey(senderSH, counter);
-            Runtime.Notify("Add. PromiseKey : ", key, " Counter : ", counter);
             Storage.Put(Storage.CurrentContext, key, promiseJson);
             
             PutPromiseCounter(senderSH, counter);
