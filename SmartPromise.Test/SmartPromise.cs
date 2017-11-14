@@ -87,14 +87,7 @@ namespace SmartPromise.Test
 
             return initialTransaction;
         }
-
-        [TestInitialize]
-        public void InitInteropService()
-        {
-            service = new CustomInteropService();
-            service.storageContext.data = new Hashtable();
-        }
-
+        
         private bool ReplacePromise(Promise promise, int index)
         {
             var jsonPromise = JsonConvert.SerializeObject(promise);
@@ -143,6 +136,13 @@ namespace SmartPromise.Test
 
             var result = engine.EvaluationStack.Peek().GetBoolean();
             return result;
+        }
+
+        [TestInitialize]
+        public void InitInteropService()
+        {
+            service = new CustomInteropService();
+            service.storageContext.data = new Hashtable();
         }
 
         [TestMethod]
