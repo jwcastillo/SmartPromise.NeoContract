@@ -20,50 +20,30 @@ using System.Linq;
 namespace SmartPromise.Test
 {
     [TestClass]
-    public class SmartPromise
+    public class UnitTest
     {
-        private const string OPERATION_ADD_PROMISE = "add";
-        private const string OPERATION_REPLACE_PROMISE = "replace";
-        private const string OPERATION_MINT_TOKENS = "mintTokens";
-        private const string OPERATION_TRANSFER = "transfer";
-        private const string CONTRACT_ADDRESS = @"..\..\..\SmartPromise\bin\Debug\SmartPromise.avm";
+        private CustomInteropService service;
+        private IScriptContainer scriptContainer;
         private const string ASSET_ID = "c56f33fc6ecfcd0c225c4ab356fee59390af8560be0e930faebe74a6daff7c9b";
-
-
+        
         private string[] HASHES = new string[] {
             "0x22a4d553282d7eaf53538eb8ccb27e842d0d90b6",
             "0xbc89c04256bd0a5b9d53a0d239d615a8734bc459",
             "0x1e66cccfed7a0a9f4bc9bf6c92b286acef65fc77",
             "0xa42abb913fa551de74fd4626ad4a789a2987e52e"
         };
-        private CustomInteropService service;
-        private IScriptContainer scriptContainer;
 
-        private string GetPromiseKey(string ownerKey, int i)
+        [TestInitialize]
+        public void InitInteropService()
         {
-            const char PROMISE_PREFIX = 'P';
-            var prefix = Convert.ToByte(PROMISE_PREFIX).ToString("x2");
-            var main = GetKey(ownerKey);
-            var postfix = Convert.ToByte(i).ToString("x2");
-            return prefix + main + postfix;
-        }
-
-        private string GetKey(string ownerKey)
-        {
-            return UInt160.Parse(ownerKey).ToArray().ToHexString();
-        }
-
-        private string GetPromiseCounterKey(string ownerKey)
-        {
-            const char PROMISE_PREFIX = 'C';
-            var prefix = Convert.ToByte(PROMISE_PREFIX).ToString("x2");
-            var main = GetKey(ownerKey);
-            return prefix + main;
+            service = new CustomInteropService();
+            service.storageContext.data = new Hashtable();
         }
 
         private void InitTransactionContext(string scriptHash, int value = 10)
         {
             /** CREATE FAKE PREVIOUS TRANSACTION */
+            var anotherTransaction = new CustomTransaction(TransactionType.ContractTransaction);
             var initialTransaction = new CustomTransaction(TransactionType.ContractTransaction);
             var transactionOutput = new TransactionOutput
             {
@@ -90,62 +70,30 @@ namespace SmartPromise.Test
             service.transactions[initialTransaction.Hash] = initialTransaction;
             scriptContainer = currentTransaction;
         }
-        
-        private bool ReplacePromise(Promise promise, int index)
-        {
-            var jsonPromise = JsonConvert.SerializeObject(promise);
 
+        private bool MintTokens(string hash, int value)
+        {
+            InitTransactionContext(hash, value);
             ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
-            engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
+            engine.LoadScript(File.ReadAllBytes(Helper.CONTRACT_ADDRESS));
 
             using (ScriptBuilder sb = new ScriptBuilder())
             {
-                sb.EmitPush(index);
-                sb.EmitPush(jsonPromise);
-                sb.EmitPush(2);
+                sb.EmitPush(0);
                 sb.Emit(OpCode.PACK);
-                sb.EmitPush(OPERATION_REPLACE_PROMISE);
+                sb.EmitPush(Helper.OPERATION_MINT_TOKENS);
                 engine.LoadScript(sb.ToArray());
             }
 
             engine.Execute();
-
             Assert.AreEqual(engine.State, VMState.HALT);
-
-            var result = engine.EvaluationStack.Peek().GetBoolean();
-            return result;
+            return engine.EvaluationStack.Peek().GetBoolean();
         }
 
-        private bool AddPromise(Promise promise)
+        [TestMethod]
+        public void MultipleInputs()
         {
-            var jsonPromise = JsonConvert.SerializeObject(promise);
 
-            ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
-            engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
-
-            using (ScriptBuilder sb = new ScriptBuilder())
-            {
-
-                sb.EmitPush(jsonPromise);
-                sb.EmitPush(1);
-                sb.Emit(OpCode.PACK);
-                sb.EmitPush(OPERATION_ADD_PROMISE);
-                engine.LoadScript(sb.ToArray());
-            }
-
-            engine.Execute();
-
-            Assert.AreEqual(engine.State, VMState.HALT);
-
-            var result = engine.EvaluationStack.Peek().GetBoolean();
-            return result;
-        }
-
-        [TestInitialize]
-        public void InitInteropService()
-        {
-            service = new CustomInteropService();
-            service.storageContext.data = new Hashtable();
         }
 
         [TestMethod]
@@ -177,13 +125,13 @@ namespace SmartPromise.Test
                 Proof = "COMPLETED"
             };
 
-            Assert.AreEqual(AddPromise(promiseNotCompleted), true);
+            Assert.AreEqual(Helper.AddPromise(promiseNotCompleted, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 2);
             promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseNotCompleted));
-            string promiseKey = GetPromiseKey(HASHES[0], 1);
+            string promiseKey = Helper.GetPromiseKey(HASHES[0], 1);
             Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseKey]), true);
 
-            Assert.AreEqual(ReplacePromise(promiseCompleted, 1), true);
+            Assert.AreEqual(Helper.ReplacePromise(promiseCompleted, 1, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 2);
             promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseCompleted));
             Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseKey]), true);
@@ -212,11 +160,11 @@ namespace SmartPromise.Test
 
             for (int i = 1; i <= 100; ++i)
             {
-                Assert.AreEqual(AddPromise(promise), true);
+                Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
                 /** EVERY NEW PROMISE CREATES NEW RECORD IN STORAGE PLUS ONE RECORD TO STORE PROMISES COUNT*/
                 Assert.AreEqual(data.Count, i + 1);
                 
-                promiseCounterKey = GetPromiseCounterKey(HASHES[0]);
+                promiseCounterKey = Helper.GetPromiseCounterKey(HASHES[0]);
                 ba = (byte[])data[promiseCounterKey];
                 counter = (int)ba[0];
                 Assert.AreEqual(counter, i);
@@ -224,64 +172,25 @@ namespace SmartPromise.Test
 
             /**ANOTHER USER MAKES PROMISE*/
             InitTransactionContext(HASHES[1]);
-            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 101 + 2);
-            promiseCounterKey = GetPromiseCounterKey(HASHES[1]);
+            promiseCounterKey = Helper.GetPromiseCounterKey(HASHES[1]);
             ba = (byte[])data[promiseCounterKey];
             counter = (int)ba[0];
             Assert.AreEqual(counter, 1);
 
             /**PREVIOUS USER MAKES PROMISE*/
             InitTransactionContext(HASHES[0]);
-            promiseCounterKey = GetPromiseCounterKey(HASHES[0]);
-            Assert.AreEqual(AddPromise(promise), true);
+            promiseCounterKey = Helper.GetPromiseCounterKey(HASHES[0]);
+            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 103 + 1);
             ba = (byte[])data[promiseCounterKey];
             counter = (int)ba[0];
             Assert.AreEqual(counter, 101);
         }
 
-        private bool MintTokens(string hash, int value)
-        {
-            InitTransactionContext(hash, value);
-            ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
-            engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
 
-            using (ScriptBuilder sb = new ScriptBuilder())
-            {
-                sb.EmitPush(0);
-                sb.Emit(OpCode.PACK);
-                sb.EmitPush(OPERATION_MINT_TOKENS);
-                engine.LoadScript(sb.ToArray());
-            }
-
-            engine.Execute();
-            Assert.AreEqual(engine.State, VMState.HALT);
-            return engine.EvaluationStack.Peek().GetBoolean();
-        }
-
-
-        private bool TransferToken(string hash, int value)
-        {
-            ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
-            engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
-
-            using (ScriptBuilder sb = new ScriptBuilder())
-            {
-                sb.EmitPush(value);
-                sb.EmitPush(UInt160.Parse(hash));
-                sb.EmitPush(2);
-                sb.Emit(OpCode.PACK);
-                sb.EmitPush(OPERATION_TRANSFER);
-                engine.LoadScript(sb.ToArray());
-            }
-
-            engine.Execute();
-            Assert.AreEqual(engine.State, VMState.HALT);
-            return engine.EvaluationStack.Peek().GetBoolean();
-        }
-
-
+        
         [TestMethod]
         public void CanMintTokens()
         {
@@ -290,23 +199,23 @@ namespace SmartPromise.Test
             byte[] ba;
 
             Assert.AreEqual(MintTokens(HASHES[0], 5), true);
-            key = GetKey(HASHES[0]);
+            key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 5);
 
 
             Assert.AreEqual(MintTokens(HASHES[1], 40), true);
-            key = GetKey(HASHES[1]);
+            key = Helper.GetKey(HASHES[1]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 40);
             
             Assert.AreEqual(MintTokens(HASHES[0], 100), true);
-            key = GetKey(HASHES[0]);
+            key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 100 + 5);
 
             Assert.AreEqual(MintTokens(HASHES[0], 5), true);
-            key = GetKey(HASHES[0]);
+            key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 105 + 5);
         }
@@ -328,27 +237,27 @@ namespace SmartPromise.Test
             
             Assert.AreEqual(MintTokens(HASHES[1], 10), true);
 
-            Assert.AreEqual(TransferToken(HASHES[0], 3), true);
+            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[0], 3, scriptContainer, service), true);
             
-            key = GetKey(HASHES[1]);
+            key = Helper.GetKey(HASHES[1]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 10 - 3);
-            key = GetKey(HASHES[0]);
+            key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 0 + 3);
 
             /**SENDING TO YOURSELF*/
-            Assert.AreEqual(TransferToken(HASHES[1], 2), true);
-            key = GetKey(HASHES[1]);
+            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[1], 2, scriptContainer, service), true);
+            key = Helper.GetKey(HASHES[1]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 7);
 
             Assert.AreEqual(MintTokens(HASHES[2], 10), true);
-            Assert.AreEqual(TransferToken(HASHES[1], 4), true);
-            key = GetKey(HASHES[2]);
+            Assert.AreEqual(Helper.TransferToken(HASHES[2], HASHES[1], 4, scriptContainer, service), true);
+            key = Helper.GetKey(HASHES[2]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 10 - 4);
-            key = GetKey(HASHES[1]);
+            key = Helper.GetKey(HASHES[1]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 7 + 4);
         }
@@ -357,7 +266,7 @@ namespace SmartPromise.Test
         public void CanTransferTokenWhenInsufficient()
         {
             Assert.AreEqual(MintTokens(HASHES[1], 10), true);
-            Assert.AreEqual(TransferToken(HASHES[0], 14), false);
+            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[0], 14, scriptContainer, service), false);
         }
         
         [TestMethod]
@@ -367,13 +276,13 @@ namespace SmartPromise.Test
             string key;
             byte[] ba;
             Assert.AreEqual(MintTokens(HASHES[1], 10), true);
-            Assert.AreEqual(TransferToken(HASHES[0], 10), true);
+            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[0], 10, scriptContainer, service), true);
 
-            key = GetKey(HASHES[1]);
+            key = Helper.GetKey(HASHES[1]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 10 - 10);
 
-            key = GetKey(HASHES[0]);
+            key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 0 + 10);
         }
@@ -383,7 +292,7 @@ namespace SmartPromise.Test
         {
             InitTransactionContext(HASHES[0]);
             ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
-            engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
+            engine.LoadScript(File.ReadAllBytes(Helper.CONTRACT_ADDRESS));
 
             using (ScriptBuilder sb = new ScriptBuilder())
             {
@@ -391,7 +300,7 @@ namespace SmartPromise.Test
                 sb.EmitPush("notExistingPromise");
                 sb.EmitPush(2);
                 sb.Emit(OpCode.PACK);
-                sb.EmitPush(OPERATION_REPLACE_PROMISE);
+                sb.EmitPush(Helper.OPERATION_REPLACE_PROMISE);
                 engine.LoadScript(sb.ToArray());
             }
 
@@ -424,11 +333,11 @@ namespace SmartPromise.Test
                     Proof = ""
                 };
 
-                Assert.AreEqual(AddPromise(promise), true);
+                Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
                 /**ONE RECORD FOR PROMISE DATA AND ONE RECORD FOR PROMISES COUNTER*/
                 Assert.AreEqual(data.Count, (i + 1) * 2);
                 /**PROMISES ID NUMERATION STARTS WITH ONE*/
-                string promiseId = GetPromiseKey(HASHES[i], 1);
+                string promiseId = Helper.GetPromiseKey(HASHES[i], 1);
                 promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise));
                 Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseId]), true);
             }
@@ -452,33 +361,33 @@ namespace SmartPromise.Test
                 Proof = ""
             };
 
-            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 2);
 
             /** ANOTHER USER INVOKED CONTRACT*/
             InitTransactionContext(HASHES[1]);
-            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 2 + 2);
 
-            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 4 + 1);
 
-            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 5 + 1);
 
             /** ONE MORE USER INVOKED CONTRACT*/
             InitTransactionContext(HASHES[2]);
-            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 6 + 2);
 
             /** PREVIOUS USER INVOKED CONTRACT*/
             InitTransactionContext(HASHES[0]);
-            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 8 + 1);
 
             /** ONE MORE USER INVOKED CONTRACT*/
             InitTransactionContext(HASHES[3]);
-            Assert.AreEqual(AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
             Assert.AreEqual(data.Count, 9 + 2);
         }
         
@@ -503,10 +412,10 @@ namespace SmartPromise.Test
                     Proof = ""
                 };
 
-                Assert.AreEqual(AddPromise(promise), true);
+                Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
                 /** EVERY NEW PROMISE CREATES NEW RECORD IN STORAGE PLUS ONE RECORD TO STORE PROMISES COUNT*/
                 Assert.AreEqual(data.Count, i + 1);
-                string promiseId = GetPromiseKey(HASHES[0], i);
+                string promiseId = Helper.GetPromiseKey(HASHES[0], i);
                 promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promise));
                 Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseId]), true);
             }
@@ -517,7 +426,7 @@ namespace SmartPromise.Test
         {
             InitTransactionContext(HASHES[0]);
             ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
-            engine.LoadScript(File.ReadAllBytes(CONTRACT_ADDRESS));
+            engine.LoadScript(File.ReadAllBytes(Helper.CONTRACT_ADDRESS));
 
             using (ScriptBuilder sb = new ScriptBuilder())
             {
@@ -534,7 +443,5 @@ namespace SmartPromise.Test
             var result = engine.EvaluationStack.Peek().GetBoolean();
             Assert.AreEqual(result, false);
         }
-
-        
     }
 }

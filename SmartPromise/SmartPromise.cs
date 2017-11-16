@@ -1,7 +1,6 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
-using System;
 using System.Numerics;
 
 namespace SmartPromise
@@ -23,9 +22,9 @@ namespace SmartPromise
         public static char KEY_PREFIX_COUNT() => 'C';
         private static char KEY_PREFIX_PROMISE() => 'P';
 
-        public static string GetPromiseCounterKey(string senderSH) => KEY_PREFIX_COUNT() + senderSH;
+        private static string GetPromiseCounterKey(string senderSH) => KEY_PREFIX_COUNT() + senderSH;
         
-        public static string GetPromiseKey(string senderSH, BigInteger index) {
+        private static string GetPromiseKey(string senderSH, BigInteger index) {
             /**
              * WHEN CONCATINATING MORE THAN TWO STRINGS WITHIN ONE EXPRESSION, 
              * ONLY TWO OF THEM CONCATINATES
@@ -51,31 +50,30 @@ namespace SmartPromise
         private static string GetSenderScriptHash()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
+            /**GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION*/
             TransactionOutput[] reference = tx.GetReferences();
             TransactionOutput firstReference = reference[0];
             return firstReference.ScriptHash.AsString();
         }
 
+        /**SUMS AND RETURNS ALL NEO INPUT VALUES IN THIS TRANSACTION*/
         private static BigInteger GetContributedNeo()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-            TransactionOutput[] reference = tx.GetReferences();
-            TransactionOutput firstReference = reference[0];
-            
-            BigInteger a = firstReference.Value;
-            if (firstReference.AssetId == neo_asset_id)
+            TransactionOutput[] references = tx.GetReferences();
+
+            BigInteger contributed = 0;
+            foreach(var reference in references)
             {
-                return firstReference.Value;
+                if (reference.AssetId == neo_asset_id)  {
+                    contributed += reference.Value;
+                }
             }
-            else
-            {
-                return 0;
-            }
+            return contributed;
         }
 
         public static object Main(string operation, params object[] args)
         {
-            /**ALL KEYS USED FOR DATA STORING IN BLOCKCHAIN WOULD BE BASED ON SENDER SCRIPT HASH*/
             string senderSH = GetSenderScriptHash();
 
             switch (operation)
@@ -85,15 +83,13 @@ namespace SmartPromise
                 case "add":
                     return Add(senderSH, (string)args[0]);
                 case "mintTokens":
-                    {
-                        var s = GetSenderScriptHash();
-                        return MintTokens(s);
-                    }
+                    return MintTokens();
                 case "transfer":
                     {
-                        string to = (string)args[0];
-                        BigInteger value = (BigInteger)args[1];
-                        return Transfer(senderSH, to, value);
+                        string from = (string)args[0];
+                        string to = (string)args[1];
+                        BigInteger value = (BigInteger)args[2];
+                        return Transfer(from, to, value);
                     }
                 default:
                     return false;
@@ -101,6 +97,7 @@ namespace SmartPromise
             }
         }
         
+        /**TRANSFERS SMART COIN TOKEN BETWEEN ADDRESSES*/
         private static bool Transfer(string from, string to, BigInteger value)
         {
             Runtime.Notify("Transfer from ", from, " To ", to, " value ", value);
@@ -121,9 +118,11 @@ namespace SmartPromise
             return true;
         }
         
-        public static bool MintTokens(string sender)
+        /**EXCHANGE NEO ASSET ON SMART COIN TOKEN*/
+        public static bool MintTokens()
         {
-            Runtime.Notify("Mint sender ", sender);
+            string senderSH = GetSenderScriptHash();
+            Runtime.Notify("Mint sender ", senderSH);
             BigInteger value = GetContributedNeo();
             Runtime.Notify("Amount ", value);
 
@@ -132,7 +131,7 @@ namespace SmartPromise
                 return false;
             }
 
-            byte[] ba = Storage.Get(Storage.CurrentContext, sender);
+            byte[] ba = Storage.Get(Storage.CurrentContext, senderSH);
 
             BigInteger balance;
             if (ba.Length == 0)
@@ -144,7 +143,7 @@ namespace SmartPromise
                 balance = ba.AsBigInteger();
             }
 
-            Storage.Put(Storage.CurrentContext, sender, value + balance);
+            Storage.Put(Storage.CurrentContext, senderSH, value + balance);
             return true;
         }
 
