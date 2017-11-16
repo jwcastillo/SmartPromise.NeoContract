@@ -8,7 +8,9 @@ namespace SmartPromise.Test
 {
     public enum PROMISE_STATUS { COMPLTED = 0, NOT_COMPLTED, ERROR };
     
-    /**THIS IS HOW PROMISE DATA LOOKS LIKE*/
+    /// <summary>
+    /// THAT'S HOW OUR PROMISE DATA LOOKS LIKE
+    /// </summary>
     [Serializable]
     public class Promise
     {

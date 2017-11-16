@@ -13,22 +13,38 @@ namespace SmartPromise.Test
 {
     static class Helper
     {
+        /// <summary>
+        /// LIST OF AVAILABLE OPERATIONS IN SMART CONTRACT
+        /// </summary>
         public static string OPERATION_ADD_PROMISE = "add";
         public static string OPERATION_REPLACE_PROMISE = "replace";
         public static string OPERATION_MINT_TOKENS = "mintTokens";
         public static string OPERATION_TRANSFER = "transfer";
+
+        /// <summary>
+        /// DEFINES WHERE TO GET SMART PAOMISE CONTRACT GENERATED SCRIPT
+        /// </summary>
         public static string CONTRACT_ADDRESS = @"..\..\..\SmartPromise\bin\Debug\SmartPromise.avm";
         public static IScriptContainer scriptContainer;
         public static CustomInteropService service;
 
         private const string NEO_ASSET_ID = "c56f33fc6ecfcd0c225c4ab356fee59390af8560be0e930faebe74a6daff7c9b";
 
+        /// <summary>
+        /// INITIALIZATION
+        /// </summary>
         public static void Init()
         {
             service = new CustomInteropService();
             service.storageContext.data = new Hashtable();
         }
 
+        /// <summary>
+        /// GIVES KEY, THAT ALLOWS YOU TO ACCESS PROMISE DATA IN BLOCKCHAIN STORAGE
+        /// </summary>
+        /// <param name="ownerKey"></param>
+        /// <param name="i"></param>
+        /// <returns></returns>
         public static string GetPromiseKey(string ownerKey, int i)
         {
             const char PROMISE_PREFIX = 'P';
@@ -38,11 +54,21 @@ namespace SmartPromise.Test
             return prefix + main + postfix;
         }
 
+        /// <summary>
+        /// GIVES KEY, USED FOR GENERATING PROMISE AND PROMISE COUNTER KEYS
+        /// </summary>
+        /// <param name="ownerKey"></param>
+        /// <returns></returns>
         public static string GetKey(string ownerKey)
         {
             return UInt160.Parse(ownerKey).ToArray().ToHexString();
         }
 
+        /// <summary>
+        /// GIVES PROMISE COUNTER KEY, USED FOR ACCESING PROMISE COUNTER IN BLOCKCHAIN
+        /// </summary>
+        /// <param name="ownerKey"></param>
+        /// <returns></returns>
         public static string GetPromiseCounterKey(string ownerKey)
         {
             const char PROMISE_PREFIX = 'C';
@@ -51,6 +77,13 @@ namespace SmartPromise.Test
             return prefix + main;
         }
 
+        /// <summary>
+        /// TRANSFERS PARTICULAR AMOUNT OF TOKENS BETWEEN SCRIPT HASHES
+        /// </summary>
+        /// <param name="fromSH"></param>
+        /// <param name="toSH"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public static bool TransferToken(string fromSH, string toSH, int value)
         {
             ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
@@ -72,6 +105,12 @@ namespace SmartPromise.Test
             return engine.EvaluationStack.Peek().GetBoolean();
         }
 
+        /// <summary>
+        /// ADD PROMISE TO BLOCKCHAIN
+        /// </summary>
+        /// <param name="hash"></param>
+        /// <param name="promise"></param>
+        /// <returns></returns>
         public static bool AddPromise(string hash, Promise promise)
         {
             var jsonPromise = JsonConvert.SerializeObject(promise);
@@ -98,6 +137,13 @@ namespace SmartPromise.Test
             return result;
         }
 
+        /// <summary>
+        /// REPLACES PROMISE
+        /// </summary>
+        /// <param name="hash"></param>
+        /// <param name="promise"></param>
+        /// <param name="index"></param>
+        /// <returns></returns>
         public static bool ReplacePromise(string hash, Promise promise, int index)
         {
             var jsonPromise = JsonConvert.SerializeObject(promise);
@@ -124,6 +170,10 @@ namespace SmartPromise.Test
             return result;
         }
 
+        /// <summary>
+        /// MINT TOKENS
+        /// </summary>
+        /// <returns></returns>
         public static bool MintTokens()
         {
             ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
@@ -142,6 +192,12 @@ namespace SmartPromise.Test
             return engine.EvaluationStack.Peek().GetBoolean();
         }
 
+        /// <summary>
+        /// INIT HISTORY OF TRANSACTIONS
+        /// </summary>
+        /// <param name="scriptHash"></param>
+        /// <param name="value"></param>
+        /// <param name="inputAmount"></param>
         public static void InitTransactionContext(string scriptHash, int value, ushort inputAmount = 1)
         {
             Transaction initialTransaction = new CustomTransaction(TransactionType.ContractTransaction);
