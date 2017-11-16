@@ -57,7 +57,6 @@ namespace SmartPromise
 
         private static string GetNeoSenderScriptHash()
         {
-            
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
             /**GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION*/
             TransactionOutput[] reference = tx.GetReferences();
@@ -95,12 +94,12 @@ namespace SmartPromise
                 case "replace":
                     {
                         senderSH = GetSenderScriptHash();
-                        return Replace(senderSH, (string)args[0], (BigInteger)args[1]);
+                        return Replace((string)args[0], (string)args[1], (BigInteger)args[2]);
                     }
                 case "add":
                     {
                         senderSH = GetSenderScriptHash();
-                        return Add(senderSH, (string)args[0]);
+                        return Add((string)args[0], (string)args[1]);
                     }
                 case "mintTokens":
                     return MintTokens();

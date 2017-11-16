@@ -80,13 +80,13 @@ namespace SmartPromise.Test
                 Proof = "COMPLETED"
             };
 
-            Assert.AreEqual(Helper.AddPromise(promiseNotCompleted), true);
+            Assert.AreEqual(Helper.AddPromise(HASHES[0], promiseNotCompleted), true);
             Assert.AreEqual(data.Count, 2);
             promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseNotCompleted));
             string promiseKey = Helper.GetPromiseKey(HASHES[0], 1);
             Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseKey]), true);
 
-            Assert.AreEqual(Helper.ReplacePromise(promiseCompleted, 1), true);
+            Assert.AreEqual(Helper.ReplacePromise(HASHES[0], promiseCompleted, 1), true);
             Assert.AreEqual(data.Count, 2);
             promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseCompleted));
             Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseKey]), true);
@@ -115,7 +115,7 @@ namespace SmartPromise.Test
 
             for (int i = 1; i <= 100; ++i)
             {
-                Assert.AreEqual(Helper.AddPromise(promise), true);
+                Assert.AreEqual(Helper.AddPromise(HASHES[0], promise), true);
                 /** EVERY NEW PROMISE CREATES NEW RECORD IN STORAGE PLUS ONE RECORD TO STORE PROMISES COUNT*/
                 Assert.AreEqual(data.Count, i + 1);
                 
@@ -127,7 +127,7 @@ namespace SmartPromise.Test
 
             /**ANOTHER USER MAKES PROMISE*/
             Helper.InitTransactionContext(HASHES[1], 10);
-            Assert.AreEqual(Helper.AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(HASHES[1], promise), true);
             Assert.AreEqual(data.Count, 101 + 2);
             promiseCounterKey = Helper.GetPromiseCounterKey(HASHES[1]);
             ba = (byte[])data[promiseCounterKey];
@@ -137,7 +137,7 @@ namespace SmartPromise.Test
             /**PREVIOUS USER MAKES PROMISE*/
             Helper.InitTransactionContext(HASHES[0], 10);
             promiseCounterKey = Helper.GetPromiseCounterKey(HASHES[0]);
-            Assert.AreEqual(Helper.AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(HASHES[0], promise), true);
             Assert.AreEqual(data.Count, 103 + 1);
             ba = (byte[])data[promiseCounterKey];
             counter = (int)ba[0];
@@ -261,8 +261,9 @@ namespace SmartPromise.Test
             using (ScriptBuilder sb = new ScriptBuilder())
             {
                 sb.EmitPush(10);
+                sb.EmitPush("aaaaaaaaaaaaa");
                 sb.EmitPush("notExistingPromise");
-                sb.EmitPush(2);
+                sb.EmitPush(3);
                 sb.Emit(OpCode.PACK);
                 sb.EmitPush(Helper.OPERATION_REPLACE_PROMISE);
                 engine.LoadScript(sb.ToArray());
@@ -297,7 +298,7 @@ namespace SmartPromise.Test
                     Proof = ""
                 };
 
-                Assert.AreEqual(Helper.AddPromise(promise), true);
+                Assert.AreEqual(Helper.AddPromise(HASHES[i], promise), true);
                 /**ONE RECORD FOR PROMISE DATA AND ONE RECORD FOR PROMISES COUNTER*/
                 Assert.AreEqual(data.Count, (i + 1) * 2);
                 /**PROMISES ID NUMERATION STARTS WITH ONE*/
@@ -325,33 +326,33 @@ namespace SmartPromise.Test
                 Proof = ""
             };
 
-            Assert.AreEqual(Helper.AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(HASHES[0], promise), true);
             Assert.AreEqual(data.Count, 2);
 
             /** ANOTHER USER INVOKED CONTRACT*/
             Helper.InitTransactionContext(HASHES[1], 10);
-            Assert.AreEqual(Helper.AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(HASHES[1], promise), true);
             Assert.AreEqual(data.Count, 2 + 2);
 
-            Assert.AreEqual(Helper.AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(HASHES[1], promise), true);
             Assert.AreEqual(data.Count, 4 + 1);
 
-            Assert.AreEqual(Helper.AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(HASHES[1], promise), true);
             Assert.AreEqual(data.Count, 5 + 1);
 
             /** ONE MORE USER INVOKED CONTRACT*/
             Helper.InitTransactionContext(HASHES[2], 10);
-            Assert.AreEqual(Helper.AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(HASHES[2], promise), true);
             Assert.AreEqual(data.Count, 6 + 2);
 
             /** PREVIOUS USER INVOKED CONTRACT*/
             Helper.InitTransactionContext(HASHES[0], 10);
-            Assert.AreEqual(Helper.AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(HASHES[0], promise), true);
             Assert.AreEqual(data.Count, 8 + 1);
 
             /** ONE MORE USER INVOKED CONTRACT*/
             Helper.InitTransactionContext(HASHES[3], 10);
-            Assert.AreEqual(Helper.AddPromise(promise), true);
+            Assert.AreEqual(Helper.AddPromise(HASHES[3], promise), true);
             Assert.AreEqual(data.Count, 9 + 2);
         }
         
@@ -376,7 +377,7 @@ namespace SmartPromise.Test
                     Proof = ""
                 };
 
-                Assert.AreEqual(Helper.AddPromise(promise), true);
+                Assert.AreEqual(Helper.AddPromise(HASHES[0], promise), true);
                 /** EVERY NEW PROMISE CREATES NEW RECORD IN STORAGE PLUS ONE RECORD TO STORE PROMISES COUNT*/
                 Assert.AreEqual(data.Count, i + 1);
                 string promiseId = Helper.GetPromiseKey(HASHES[0], i);

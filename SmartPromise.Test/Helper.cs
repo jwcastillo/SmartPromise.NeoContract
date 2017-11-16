@@ -72,7 +72,7 @@ namespace SmartPromise.Test
             return engine.EvaluationStack.Peek().GetBoolean();
         }
 
-        public static bool AddPromise(Promise promise)
+        public static bool AddPromise(string hash, Promise promise)
         {
             var jsonPromise = JsonConvert.SerializeObject(promise);
 
@@ -83,7 +83,8 @@ namespace SmartPromise.Test
             {
 
                 sb.EmitPush(jsonPromise);
-                sb.EmitPush(1);
+                sb.EmitPush(UInt160.Parse(hash));
+                sb.EmitPush(2);
                 sb.Emit(OpCode.PACK);
                 sb.EmitPush(OPERATION_ADD_PROMISE);
                 engine.LoadScript(sb.ToArray());
@@ -97,7 +98,7 @@ namespace SmartPromise.Test
             return result;
         }
 
-        public static bool ReplacePromise(Promise promise, int index)
+        public static bool ReplacePromise(string hash, Promise promise, int index)
         {
             var jsonPromise = JsonConvert.SerializeObject(promise);
 
@@ -108,7 +109,8 @@ namespace SmartPromise.Test
             {
                 sb.EmitPush(index);
                 sb.EmitPush(jsonPromise);
-                sb.EmitPush(2);
+                sb.EmitPush(UInt160.Parse(hash));
+                sb.EmitPush(3);
                 sb.Emit(OpCode.PACK);
                 sb.EmitPush(OPERATION_REPLACE_PROMISE);
                 engine.LoadScript(sb.ToArray());
