@@ -228,7 +228,8 @@ namespace SmartPromise.Test
             
             /**INIT CONTEXT*/
             service.transactions[initialTransaction.Hash] = initialTransaction;
-            scriptContainer = currentTransaction;
+            service.transactions[currentTransaction.Hash] = currentTransaction;
+            scriptContainer = initialTransaction;
         }
     }
 }

@@ -13,7 +13,6 @@ namespace SmartPromise
          */
         public static string Name() => "SmartCoin";
         public static string Symbol() => "Sc";
-        public static readonly byte[] Owner = { 47, 60, 170, 33, 216, 40, 148, 2, 242, 150, 9, 84, 154, 50, 237, 160, 97, 90, 55, 183 };
         private static readonly byte[] neo_asset_id = { 155, 124, 255, 218, 166, 116, 190, 174, 15, 147, 14, 190, 96, 133, 175, 144, 147, 229, 254, 86, 179, 74, 92, 34, 12, 205, 207, 110, 252, 51, 111, 197 };
         
         /**
@@ -61,9 +60,6 @@ namespace SmartPromise
         private static string GetSenderScriptHash()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-            /**
-             * GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION
-             */
             TransactionOutput[] reference = tx.GetReferences();
             return reference[0].ScriptHash.AsString();
         }
@@ -75,9 +71,6 @@ namespace SmartPromise
         private static string GetNeoSenderScriptHash()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-            /**
-             * GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION
-             */
             TransactionOutput[] reference = tx.GetReferences();
             foreach (TransactionOutput output in reference)
             {
@@ -95,13 +88,12 @@ namespace SmartPromise
         private static BigInteger GetContributeNeo()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-            TransactionOutput[] references = tx.GetReferences();
+            TransactionOutput[] references = tx.GetOutputs();
 
             BigInteger contributed = 0;
             foreach (var reference in references)
             {
-                if (reference.AssetId == neo_asset_id && 
-                    ExecutionEngine.ExecutingScriptHash == reference.ScriptHash)
+                if (reference.AssetId == neo_asset_id)
                     contributed += reference.Value;
             }
             return contributed;
@@ -130,6 +122,10 @@ namespace SmartPromise
                         BigInteger value = (BigInteger)args[2];
                         return Transfer(from, to, value);
                     }
+                case "name":
+                    return Name();
+                case "symbol":
+                    return Symbol();
                 default:
                     return false;
             
