@@ -13,7 +13,9 @@ namespace SmartPromise
          */
         public static string Name() => "SmartCoin";
         public static string Symbol() => "SC";
-        private static readonly byte[] neo_asset_id = { 155, 124, 255, 218, 166, 116, 190, 174, 15, 147, 14, 190, 96, 133, 175, 144, 147, 229, 254, 86, 179, 74, 92, 34, 12, 205, 207, 110, 252, 51, 111, 197 };
+        private const ulong SwapRate = 100;
+        private const ulong NeoDecimals = 100000000;
+        private static readonly byte[] NeoAssetId = { 155, 124, 255, 218, 166, 116, 190, 174, 15, 147, 14, 190, 96, 133, 175, 144, 147, 229, 254, 86, 179, 74, 92, 34, 12, 205, 207, 110, 252, 51, 111, 197 };
         
         /**
          * DIFFERENT TYPES OF DATA IN STORAGE HAVE DIFFERENT PREFIXES
@@ -131,10 +133,13 @@ namespace SmartPromise
             byte[] ba = Storage.Get(Storage.CurrentContext, senderSH);
 
             BigInteger balance;
+
             if (ba.Length == 0)
                 balance = 0;
             else
                 balance = ba.AsBigInteger();
+
+            BigInteger token = (balance / NeoDecimals) * SwapRate;
             Storage.Put(Storage.CurrentContext, senderSH, value + balance);
             
             Runtime.Notify("MINTED", value + balance, senderSH);
@@ -195,7 +200,7 @@ namespace SmartPromise
             TransactionOutput[] reference = tx.GetReferences();
             foreach (TransactionOutput output in reference)
             {
-                if (output.AssetId == neo_asset_id) return output.ScriptHash;
+                if (output.AssetId == NeoAssetId) return output.ScriptHash;
             }
             return new byte[0];
         }
@@ -212,7 +217,7 @@ namespace SmartPromise
             ulong value = 0;
             foreach (TransactionOutput output in outputs)
             {
-                if (output.ScriptHash == GetReceiver() && output.AssetId == neo_asset_id)
+                if (output.ScriptHash == GetReceiver() && output.AssetId == NeoAssetId)
                 {
                     value += (ulong)output.Value;
                 }
