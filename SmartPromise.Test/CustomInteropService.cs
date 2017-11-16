@@ -9,9 +9,19 @@ using System.Text;
 
 namespace SmartPromise.Test
 {
+    /// <summary>
+    /// VERY USEFUL CLASS FOR TESTING
+    /// ALLOWS YOU DEFINE SERVICES MANUALLY
+    /// THAT ARE USED BY SMART CONTRACT
+    /// </summary>
     class CustomInteropService : InteropService
     {
         public const int NEO_FACTOR = 100000000;
+        /// <summary>
+        /// STORAGE CONTEXT WHICH WILL BE USED BY A CONTRACT
+        /// DEFINNING IT WOULD ALLOW YOU TO KEEP TRACK OF STORAGE AND MAKE 
+        /// RELEVANT TESTS
+        /// </summary>
         public CustomStorageContext storageContext;
         public Hashtable transactions;
         
@@ -59,6 +69,7 @@ namespace SmartPromise.Test
             engine.EvaluationStack.Push(true);
             return true;
         }
+
 
         public bool Storage_GetContext(ExecutionEngine engine)
         {

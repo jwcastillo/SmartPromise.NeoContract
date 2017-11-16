@@ -106,7 +106,7 @@ namespace SmartPromise.Test
         }
 
         /// <summary>
-        /// ADD PROMISE TO BLOCKCHAIN
+        /// ADD A PROMISE TO BLOCKCHAIN
         /// </summary>
         /// <param name="hash"></param>
         /// <param name="promise"></param>
