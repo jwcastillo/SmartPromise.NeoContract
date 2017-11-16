@@ -54,52 +54,6 @@ namespace SmartPromise
         }
 
         /// <summary>
-        /// GET SENDER SCRIPT HASH
-        /// </summary>
-        /// <returns></returns>
-        private static string GetSenderScriptHash()
-        {
-            Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-            TransactionOutput[] reference = tx.GetReferences();
-            return reference[0].ScriptHash.AsString();
-        }
-
-        /// <summary>
-        /// GET SENDER SCRIPT HASH, WHO SENT NEO TO THE CONTRACT
-        /// </summary>
-        /// <returns></returns>
-        private static string GetNeoSenderScriptHash()
-        {
-            Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-            TransactionOutput[] reference = tx.GetReferences();
-            foreach (TransactionOutput output in reference)
-            {
-                if (output.AssetId == neo_asset_id)
-                    return output.ScriptHash.AsString();
-            }
-            return new byte[0].AsString();
-
-        }
-
-        /// <summary>
-        /// SUMS AND RETURNS ALL NEO INPUTS, ADDRESSED TO THIS CONTRACT
-        /// </summary>
-        /// <returns></returns>
-        private static BigInteger GetContributeNeo()
-        {
-            Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-            TransactionOutput[] references = tx.GetOutputs();
-
-            BigInteger contributed = 0;
-            foreach (var reference in references)
-            {
-                if (reference.AssetId == neo_asset_id)
-                    contributed += reference.Value;
-            }
-            return contributed;
-        }
-
-        /// <summary>
         /// MAIN FUNCTION
         /// </summary>
         /// <param name="operation"></param>
@@ -128,7 +82,6 @@ namespace SmartPromise
                     return Symbol();
                 default:
                     return false;
-            
             }
         }
 
@@ -167,16 +120,13 @@ namespace SmartPromise
         /// <returns></returns>
         public static bool MintTokens()
         {
-            string senderSH = GetNeoSenderScriptHash();
+            string senderSH = GetSender().AsString();
 
             if (senderSH.Length == 0)
                 return false;
-
-            BigInteger value = GetContributeNeo();
-
+            BigInteger value = GetContributeValue();
             if (value == 0)
                 return false;
-
             byte[] ba = Storage.Get(Storage.CurrentContext, senderSH);
 
             BigInteger balance;
@@ -184,8 +134,10 @@ namespace SmartPromise
                 balance = 0;
             else
                 balance = ba.AsBigInteger();
-
             Storage.Put(Storage.CurrentContext, senderSH, value + balance);
+            
+            Runtime.Notify("TOKENS MINTED ", value + balance);
+            Runtime.Notify("SENDER", senderSH);
             return true;
         }
 
@@ -210,6 +162,7 @@ namespace SmartPromise
                 return false;
 
             Storage.Put(Storage.CurrentContext, key, promise);
+            Runtime.Notify("Promise replaced", senderSH);
             return true;
         }
         
@@ -233,6 +186,37 @@ namespace SmartPromise
             
             PutPromiseCounter(senderSH, counter);
             return true;
+        }
+        
+        private static byte[] GetSender()
+        {
+            Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
+            TransactionOutput[] reference = tx.GetReferences();
+            foreach (TransactionOutput output in reference)
+            {
+                if (output.AssetId == neo_asset_id) return output.ScriptHash;
+            }
+            return new byte[0];
+        }
+        
+        private static byte[] GetReceiver()
+        {
+            return ExecutionEngine.ExecutingScriptHash;
+        }
+        
+        private static ulong GetContributeValue()
+        {
+            Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
+            TransactionOutput[] outputs = tx.GetOutputs();
+            ulong value = 0;
+            foreach (TransactionOutput output in outputs)
+            {
+                if (output.ScriptHash == GetReceiver() && output.AssetId == neo_asset_id)
+                {
+                    value += (ulong)output.Value;
+                }
+            }
+            return value;
         }
     }
 }
