@@ -2,14 +2,16 @@
 using Neo.Core;
 using Neo.VM;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace SmartPromise.Test
 {
     class CustomInteropService : InteropService
     {
-
+        public const int NEO_FACTOR = 100000000;
         public CustomStorageContext storageContext;
         public Hashtable transactions;
         
@@ -26,11 +28,23 @@ namespace SmartPromise.Test
             Register("Neo.Input.GetHash", Input_GetHash);
             Register("Neo.Input.GetIndex", Input_GetIndex);
             Register("Neo.Output.GetScriptHash", Output_GetScriptHash);
+            Register("Neo.Output.GetValue", Output_GetValue);
+            Register("Neo.Output.GetAssetId", Output_GetAssetId);
             Register("Neo.Runtime.Notify", Runtime_Notify);
+            
             storageContext = new CustomStorageContext();
             transactions = new Hashtable();
         }
-
+        
+        protected virtual bool Output_GetAssetId(ExecutionEngine engine)
+        {
+            TransactionOutput output = engine.EvaluationStack.Pop().GetInterface<TransactionOutput>();
+            if (output == null)
+                return false;
+            
+            engine.EvaluationStack.Push(output.AssetId.ToArray());
+            return true;
+        }
 
         protected virtual bool Runtime_CheckWitness(ExecutionEngine engine)
         {          
@@ -58,10 +72,12 @@ namespace SmartPromise.Test
             return true;
         }
 
+
         protected bool Storage_Put(ExecutionEngine engine)
         {
             CustomStorageContext context = engine.EvaluationStack.Pop().GetInterface<CustomStorageContext>();
-            var key = engine.EvaluationStack.Pop().GetByteArray().ToHexString();
+            var top = engine.EvaluationStack.Pop();
+            var key = top.GetByteArray().ToHexString();
             if (key.Length > 1024)
                 return false;
             byte[] value = engine.EvaluationStack.Pop().GetByteArray();
@@ -94,6 +110,16 @@ namespace SmartPromise.Test
             return true;
         }
 
+
+        protected virtual bool Output_GetValue(ExecutionEngine engine)
+        {
+            TransactionOutput output = engine.EvaluationStack.Pop().GetInterface<TransactionOutput>();
+            if (output == null)
+                return false;
+            engine.EvaluationStack.Push(output.Value.GetData());
+            return true;
+        }
+
         protected virtual bool Output_GetScriptHash(ExecutionEngine engine)
         {
             TransactionOutput output = engine.EvaluationStack.Pop().GetInterface<TransactionOutput>();
@@ -114,20 +140,41 @@ namespace SmartPromise.Test
         protected virtual bool Transaction_GetOutputs(ExecutionEngine engine)
         {
             Transaction tx = engine.EvaluationStack.Pop().GetInterface<Transaction>();
-            if (tx == null) return false;
+            if (tx == null)
+                return false;
             engine.EvaluationStack.Push(tx.Outputs.Select(p => StackItem.FromInterface(p)).ToArray());
             return true;
         }
 
         protected virtual bool Transaction_GetReferences(ExecutionEngine engine)
         {
-            Transaction tx = engine.EvaluationStack.Pop().GetInterface<Transaction>();
-            if (tx == null)
+            Transaction current_tx = engine.EvaluationStack.Pop().GetInterface<Transaction>();
+            
+            if (current_tx == null)
                 return false;
-            CustomTransaction ctx = tx as CustomTransaction;
-            if (ctx == null)
-                return false;
-            engine.EvaluationStack.Push(ctx.CustomReferences.Select(p => StackItem.FromInterface(p)).ToArray());
+
+            Dictionary<CoinReference, TransactionOutput> dictionary = new Dictionary<CoinReference, TransactionOutput>();
+            foreach (var group in current_tx.Inputs.GroupBy(p => p.PrevHash))
+            {
+                Transaction prev_tx = (Transaction)transactions[group.Key];
+
+                if (prev_tx == null)
+                    return false;
+
+                var inReferences = group.Select(p => new
+                {
+                    Input = p,
+                    Output = prev_tx.Outputs[p.PrevIndex]
+                });
+
+                foreach (var reference in inReferences)
+                {
+                    dictionary.Add(reference.Input, reference.Output);
+                }
+            }
+
+            engine.EvaluationStack.Push(dictionary.Select(v => StackItem.FromInterface(v.Value)).ToArray());
+
             return true;
         }
 

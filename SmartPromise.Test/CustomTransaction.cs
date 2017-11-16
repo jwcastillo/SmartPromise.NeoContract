@@ -4,7 +4,6 @@ namespace SmartPromise.Test
 {
     class CustomTransaction : Transaction
     {
-        public TransactionOutput[] CustomReferences { get; set; }
         public CustomTransaction(TransactionType type) : base(type)
         {
             Version = 1;

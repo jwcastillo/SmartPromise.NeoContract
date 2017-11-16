@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27004.2005
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartPromise", "SmartPromise.csproj", "{07977072-AC02-4C69-BC6A-1D47BCD584FB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartPromise", "SmartPromise\SmartPromise.csproj", "{07977072-AC02-4C69-BC6A-1D47BCD584FB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartPromise.Test", "..\SmartPromise.Test\SmartPromise.Test.csproj", "{0049CD8F-781E-4A15-8AC2-EF4C29146106}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartPromise.Test", "SmartPromise.Test\SmartPromise.Test.csproj", "{0049CD8F-781E-4A15-8AC2-EF4C29146106}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
