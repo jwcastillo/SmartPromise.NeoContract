@@ -21,6 +21,7 @@ namespace SmartPromise.Test
         public static string OPERATION_MINT_TOKENS = "mintTokens";
         public static string OPERATION_TRANSFER = "transfer";
 
+        public static string CONTRACT_HASH = "c92a6ba1f723ac1fc3e87acfb420987f7fea2d4e";
         /// <summary>
         /// DEFINES WHERE TO GET SMART PAOMISE CONTRACT GENERATED SCRIPT
         /// </summary>
@@ -177,6 +178,7 @@ namespace SmartPromise.Test
         public static bool MintTokens()
         {
             ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
+            
             engine.LoadScript(File.ReadAllBytes(Helper.CONTRACT_ADDRESS));
 
             using (ScriptBuilder sb = new ScriptBuilder())
@@ -188,6 +190,7 @@ namespace SmartPromise.Test
             }
 
             engine.Execute();
+            
             Assert.AreEqual(engine.State, VMState.HALT);
             return engine.EvaluationStack.Peek().GetBoolean();
         }
@@ -198,36 +201,31 @@ namespace SmartPromise.Test
         /// <param name="scriptHash"></param>
         /// <param name="value"></param>
         /// <param name="inputAmount"></param>
-        public static void InitTransactionContext(string scriptHash, int value, ushort inputAmount = 1)
+        public static void InitTransactionContext(string scriptHash, int value)
         {
             Transaction initialTransaction = new CustomTransaction(TransactionType.ContractTransaction);
             Transaction currentTransaction = new CustomTransaction(TransactionType.ContractTransaction);
-            initialTransaction.Outputs = new TransactionOutput[inputAmount];
-            currentTransaction.Inputs = new CoinReference[inputAmount];
+            TransactionOutput transactionOutput;
+            CoinReference coinRef;
 
-            for (ushort i = 0; i < inputAmount; ++i)
+            /** CREATE FAKE PREVIOUS TRANSACTION */
+            transactionOutput = new TransactionOutput
             {
-                /** CREATE FAKE PREVIOUS TRANSACTION */
-                var transactionOutput = new TransactionOutput
-                {
-                    ScriptHash = UInt160.Parse(scriptHash),
-                    Value = new Fixed8(value),
-                    AssetId = UInt256.Parse(NEO_ASSET_ID)
-                };
+                ScriptHash = UInt160.Parse(scriptHash),
+                Value = new Fixed8(value),
+                AssetId = UInt256.Parse(NEO_ASSET_ID)
+            };
 
-                initialTransaction.Outputs[i] = transactionOutput;
-                /** CREATE FAKE CURRENT TRANSACTION */
-                var coinRef = new CoinReference
-                {
-                    PrevHash = initialTransaction.Hash,
-                    PrevIndex = i
-                };
-
-
-                currentTransaction.Inputs[i] = coinRef;
-            }
-
-
+            initialTransaction.Outputs = new TransactionOutput[] { transactionOutput };
+            /** CREATE FAKE CURRENT TRANSACTION */
+            coinRef = new CoinReference
+            {
+                PrevHash = initialTransaction.Hash,
+                PrevIndex = 0
+            };
+            
+            currentTransaction.Inputs = new CoinReference[] { coinRef };
+            
             /**INIT CONTEXT*/
             service.transactions[initialTransaction.Hash] = initialTransaction;
             scriptContainer = currentTransaction;

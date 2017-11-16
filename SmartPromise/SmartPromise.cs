@@ -60,14 +60,11 @@ namespace SmartPromise
         /// <returns></returns>
         private static string GetSenderScriptHash()
         {
-            Runtime.Notify("GetSenderScriptHash");
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-            Runtime.Notify("Got tx");
             /**
              * GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION
              */
             TransactionOutput[] reference = tx.GetReferences();
-            Runtime.Notify("Result", reference[0].ScriptHash);
             return reference[0].ScriptHash.AsString();
         }
 
