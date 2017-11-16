@@ -35,7 +35,12 @@ namespace SmartPromise
             string part = KEY_PREFIX_PROMISE() + senderSH;
             return part + index;
         }
-            
+        
+        /// <summary>
+        /// GETS KEY FOR ACCESSING PROMISE COUNTER IN BLOCKCHAIN
+        /// </summary>
+        /// <param name="senderSH"></param>
+        /// <returns></returns>
         private static BigInteger GetPromiseCounter(string senderSH)
         {
             string promiseCounterKey = GetPromiseCounterKey(senderSH);
@@ -139,10 +144,11 @@ namespace SmartPromise
             else
                 balance = ba.AsBigInteger();
 
-            BigInteger token = (balance / NeoDecimals) * SwapRate;
-            Storage.Put(Storage.CurrentContext, senderSH, value + balance);
+            BigInteger token = value / NeoDecimals; 
+            token = token * SwapRate;
+            Storage.Put(Storage.CurrentContext, senderSH, balance + token);
             
-            Runtime.Notify("MINTED", value + balance, senderSH);
+            Runtime.Notify("MINTED", token + balance, senderSH);
             return true;
         }
 
@@ -194,6 +200,11 @@ namespace SmartPromise
             return true;
         }
         
+
+        /// <summary>
+        /// GET SENDER OF TRANSACTION
+        /// </summary>
+        /// <returns></returns>
         private static byte[] GetSender()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
@@ -205,11 +216,19 @@ namespace SmartPromise
             return new byte[0];
         }
         
+        /// <summary>
+        /// GET RECEIVER OF TRANSACTION
+        /// </summary>
+        /// <returns></returns>
         private static byte[] GetReceiver()
         {
             return ExecutionEngine.ExecutingScriptHash;
         }
         
+        /// <summary>
+        /// COUNT AMOUNT OF NEO USER COMMITED IN TRANSACTION
+        /// </summary>
+        /// <returns></returns>
         private static ulong GetContributeValue()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;

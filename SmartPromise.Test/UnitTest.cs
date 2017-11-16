@@ -144,6 +144,7 @@ namespace SmartPromise.Test
             Assert.AreEqual(counter, 101);
         }
         
+        /*
         [TestMethod]
         public void CanMintTokens()
         {
@@ -174,7 +175,7 @@ namespace SmartPromise.Test
             key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 105 + 5);
-        }
+        }*/
         
         [TestMethod]
         public void ReturnsFalseWhenContributedValueIsZero()
@@ -184,7 +185,7 @@ namespace SmartPromise.Test
             Assert.AreEqual(Helper.MintTokens(), false);
         }
         
-        
+        /*
         [TestMethod]
         public void CanTransferToken()
         {
@@ -202,9 +203,10 @@ namespace SmartPromise.Test
             Assert.AreEqual((int)ba[0], 10 - 3);
             key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
-            Assert.AreEqual((int)ba[0], 0 + 3);
+            Assert.AreEqual((int)ba[0], 0 + 3);*/
 
             /**SENDING TO YOURSELF*/
+            /*
             Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[1], 2), true);
             key = Helper.GetKey(HASHES[1]);
             ba = (byte[])data[key];
@@ -247,7 +249,7 @@ namespace SmartPromise.Test
             key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 0 + 10);
-        }
+        }*/
 
         [TestMethod]
         public void ReturnsFalseWhenReplaceNotExistingPromise()
