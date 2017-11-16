@@ -22,10 +22,6 @@ namespace SmartPromise.Test
     [TestClass]
     public class UnitTest
     {
-        private CustomInteropService service;
-        private IScriptContainer scriptContainer;
-        private const string ASSET_ID = "c56f33fc6ecfcd0c225c4ab356fee59390af8560be0e930faebe74a6daff7c9b";
-        
         private string[] HASHES = new string[] {
             "0x22a4d553282d7eaf53538eb8ccb27e842d0d90b6",
             "0xbc89c04256bd0a5b9d53a0d239d615a8734bc459",
@@ -34,73 +30,49 @@ namespace SmartPromise.Test
         };
 
         [TestInitialize]
-        public void InitInteropService()
+        public void InitInteropservice()
         {
-            service = new CustomInteropService();
-            service.storageContext.data = new Hashtable();
+            Helper.Init();
         }
-
-        private void InitTransactionContext(string scriptHash, int value = 10)
-        {
-            /** CREATE FAKE PREVIOUS TRANSACTION */
-            var anotherTransaction = new CustomTransaction(TransactionType.ContractTransaction);
-            var initialTransaction = new CustomTransaction(TransactionType.ContractTransaction);
-            var transactionOutput = new TransactionOutput
-            {
-                ScriptHash = UInt160.Parse(scriptHash),
-                Value = new Fixed8(value),
-                AssetId = UInt256.Parse(ASSET_ID)
-            };
-            
-            initialTransaction.Outputs = new TransactionOutput[] { transactionOutput };
-
-            /** CREATE FAKE CURRENT TRANSACTION */
-            var coinRef = new CoinReference
-            {
-                PrevHash = initialTransaction.Hash,
-                PrevIndex = 0
-            };
-            
-            var currentTransaction = new CustomTransaction(TransactionType.ContractTransaction)
-            {
-                Inputs = new CoinReference[] { coinRef }
-            };
-
-            /**INIT CONTEXT*/
-            service.transactions[initialTransaction.Hash] = initialTransaction;
-            scriptContainer = currentTransaction;
-        }
-
-        private bool MintTokens(string hash, int value)
-        {
-            InitTransactionContext(hash, value);
-            ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
-            engine.LoadScript(File.ReadAllBytes(Helper.CONTRACT_ADDRESS));
-
-            using (ScriptBuilder sb = new ScriptBuilder())
-            {
-                sb.EmitPush(0);
-                sb.Emit(OpCode.PACK);
-                sb.EmitPush(Helper.OPERATION_MINT_TOKENS);
-                engine.LoadScript(sb.ToArray());
-            }
-
-            engine.Execute();
-            Assert.AreEqual(engine.State, VMState.HALT);
-            return engine.EvaluationStack.Peek().GetBoolean();
-        }
-
+        
         [TestMethod]
         public void MultipleInputs()
         {
+            var data = Helper.service.storageContext.data;
+            string key;
+            byte[] ba;
+
+            Helper.InitTransactionContext(HASHES[0], 5);
+            Assert.AreEqual(Helper.MintTokens(), true);
+            key = Helper.GetKey(HASHES[0]);
+            ba = (byte[])data[key];
+            Assert.AreEqual((int)ba[0], 5);
+
+            Helper.InitTransactionContext(HASHES[1], 40);
+            Assert.AreEqual(Helper.MintTokens(), true);
+            key = Helper.GetKey(HASHES[1]);
+            ba = (byte[])data[key];
+            Assert.AreEqual((int)ba[0], 40);
+
+            Helper.InitTransactionContext(HASHES[0], 100);
+            Assert.AreEqual(Helper.MintTokens(), true);
+            key = Helper.GetKey(HASHES[0]);
+            ba = (byte[])data[key];
+            Assert.AreEqual((int)ba[0], 100 + 5);
+
+            Helper.InitTransactionContext(HASHES[0], 5);
+            Assert.AreEqual(Helper.MintTokens(), true);
+            key = Helper.GetKey(HASHES[0]);
+            ba = (byte[])data[key];
+            Assert.AreEqual((int)ba[0], 105 + 5);
 
         }
 
         [TestMethod]
         public void CanCompletePromise()
         {
-            InitTransactionContext(HASHES[0]);
-            var data = service.storageContext.data;
+            Helper.InitTransactionContext(HASHES[0], 10);
+            var data = Helper.service.storageContext.data;
             byte[] promiseBytes = null;
             Assert.AreEqual(data.Count, 0);
             
@@ -125,13 +97,13 @@ namespace SmartPromise.Test
                 Proof = "COMPLETED"
             };
 
-            Assert.AreEqual(Helper.AddPromise(promiseNotCompleted, scriptContainer, service), true);
+            Assert.AreEqual(Helper.AddPromise(promiseNotCompleted), true);
             Assert.AreEqual(data.Count, 2);
             promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseNotCompleted));
             string promiseKey = Helper.GetPromiseKey(HASHES[0], 1);
             Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseKey]), true);
 
-            Assert.AreEqual(Helper.ReplacePromise(promiseCompleted, 1, scriptContainer, service), true);
+            Assert.AreEqual(Helper.ReplacePromise(promiseCompleted, 1), true);
             Assert.AreEqual(data.Count, 2);
             promiseBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(promiseCompleted));
             Assert.AreEqual(promiseBytes.SequenceEqual((byte[])data[promiseKey]), true);
@@ -140,8 +112,8 @@ namespace SmartPromise.Test
         [TestMethod]
         public void PromisesSizeCountesProperly()
         {
-            InitTransactionContext(HASHES[0]);
-            var data = service.storageContext.data;
+            Helper.InitTransactionContext(HASHES[0], 10);
+            var data = Helper.service.storageContext.data;
             Assert.AreEqual(data.Count, 0);
             string promiseCounterKey;
             byte[] ba;
@@ -160,7 +132,7 @@ namespace SmartPromise.Test
 
             for (int i = 1; i <= 100; ++i)
             {
-                Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+                Assert.AreEqual(Helper.AddPromise(promise), true);
                 /** EVERY NEW PROMISE CREATES NEW RECORD IN STORAGE PLUS ONE RECORD TO STORE PROMISES COUNT*/
                 Assert.AreEqual(data.Count, i + 1);
                 
@@ -171,8 +143,8 @@ namespace SmartPromise.Test
             }
 
             /**ANOTHER USER MAKES PROMISE*/
-            InitTransactionContext(HASHES[1]);
-            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+            Helper.InitTransactionContext(HASHES[1], 10);
+            Assert.AreEqual(Helper.AddPromise(promise), true);
             Assert.AreEqual(data.Count, 101 + 2);
             promiseCounterKey = Helper.GetPromiseCounterKey(HASHES[1]);
             ba = (byte[])data[promiseCounterKey];
@@ -180,9 +152,9 @@ namespace SmartPromise.Test
             Assert.AreEqual(counter, 1);
 
             /**PREVIOUS USER MAKES PROMISE*/
-            InitTransactionContext(HASHES[0]);
+            Helper.InitTransactionContext(HASHES[0], 10);
             promiseCounterKey = Helper.GetPromiseCounterKey(HASHES[0]);
-            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+            Assert.AreEqual(Helper.AddPromise(promise), true);
             Assert.AreEqual(data.Count, 103 + 1);
             ba = (byte[])data[promiseCounterKey];
             counter = (int)ba[0];
@@ -194,27 +166,30 @@ namespace SmartPromise.Test
         [TestMethod]
         public void CanMintTokens()
         {
-            var data = service.storageContext.data;
+            var data = Helper.service.storageContext.data;
             string key;
             byte[] ba;
 
-            Assert.AreEqual(MintTokens(HASHES[0], 5), true);
+            Helper.InitTransactionContext(HASHES[0], 5);
+            Assert.AreEqual(Helper.MintTokens(), true);
             key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 5);
 
-
-            Assert.AreEqual(MintTokens(HASHES[1], 40), true);
+            Helper.InitTransactionContext(HASHES[1], 40);
+            Assert.AreEqual(Helper.MintTokens(), true);
             key = Helper.GetKey(HASHES[1]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 40);
-            
-            Assert.AreEqual(MintTokens(HASHES[0], 100), true);
+
+            Helper.InitTransactionContext(HASHES[0], 100);
+            Assert.AreEqual(Helper.MintTokens(), true);
             key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 100 + 5);
 
-            Assert.AreEqual(MintTokens(HASHES[0], 5), true);
+            Helper.InitTransactionContext(HASHES[0], 5);
+            Assert.AreEqual(Helper.MintTokens(), true);
             key = Helper.GetKey(HASHES[0]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 105 + 5);
@@ -223,21 +198,23 @@ namespace SmartPromise.Test
         [TestMethod]
         public void ReturnsFalseWhenContributedValueIsZero()
         {
-            var data = service.storageContext.data;
-            Assert.AreEqual(MintTokens(HASHES[0], 0), false);
+            Helper.InitTransactionContext(HASHES[0], 0);
+            var data = Helper.service.storageContext.data;
+            Assert.AreEqual(Helper.MintTokens(), false);
         }
         
-
+        
         [TestMethod]
         public void CanTransferToken()
         {
-            var data = service.storageContext.data;
+            var data = Helper.service.storageContext.data;
             string key;
             byte[] ba;
-            
-            Assert.AreEqual(MintTokens(HASHES[1], 10), true);
 
-            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[0], 3, scriptContainer, service), true);
+            Helper.InitTransactionContext(HASHES[1], 10);
+            Assert.AreEqual(Helper.MintTokens(), true);
+
+            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[0], 3), true);
             
             key = Helper.GetKey(HASHES[1]);
             ba = (byte[])data[key];
@@ -247,13 +224,14 @@ namespace SmartPromise.Test
             Assert.AreEqual((int)ba[0], 0 + 3);
 
             /**SENDING TO YOURSELF*/
-            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[1], 2, scriptContainer, service), true);
+            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[1], 2), true);
             key = Helper.GetKey(HASHES[1]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 7);
 
-            Assert.AreEqual(MintTokens(HASHES[2], 10), true);
-            Assert.AreEqual(Helper.TransferToken(HASHES[2], HASHES[1], 4, scriptContainer, service), true);
+            Helper.InitTransactionContext(HASHES[2], 10);
+            Assert.AreEqual(Helper.MintTokens(), true);
+            Assert.AreEqual(Helper.TransferToken(HASHES[2], HASHES[1], 4), true);
             key = Helper.GetKey(HASHES[2]);
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 10 - 4);
@@ -265,18 +243,21 @@ namespace SmartPromise.Test
         [TestMethod]
         public void CanTransferTokenWhenInsufficient()
         {
-            Assert.AreEqual(MintTokens(HASHES[1], 10), true);
-            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[0], 14, scriptContainer, service), false);
+            Helper.InitTransactionContext(HASHES[1], 10);
+            Assert.AreEqual(Helper.MintTokens(), true);
+            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[0], 14), false);
         }
         
         [TestMethod]
         public void CanSendAllTokens()
         {
-            var data = service.storageContext.data;
+            var data = Helper.service.storageContext.data;
             string key;
             byte[] ba;
-            Assert.AreEqual(MintTokens(HASHES[1], 10), true);
-            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[0], 10, scriptContainer, service), true);
+
+            Helper.InitTransactionContext(HASHES[1], 10);
+            Assert.AreEqual(Helper.MintTokens(), true);
+            Assert.AreEqual(Helper.TransferToken(HASHES[1], HASHES[0], 10), true);
 
             key = Helper.GetKey(HASHES[1]);
             ba = (byte[])data[key];
@@ -290,8 +271,8 @@ namespace SmartPromise.Test
         [TestMethod]
         public void ReturnsFalseWhenReplaceNotExistingPromise()
         {
-            InitTransactionContext(HASHES[0]);
-            ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
+            Helper.InitTransactionContext(HASHES[0], 10);
+            ExecutionEngine engine = new ExecutionEngine(Helper.scriptContainer, Crypto.Default, null, Helper.service);
             engine.LoadScript(File.ReadAllBytes(Helper.CONTRACT_ADDRESS));
 
             using (ScriptBuilder sb = new ScriptBuilder())
@@ -314,14 +295,14 @@ namespace SmartPromise.Test
         public void CanAddMultiplePromisesToMultipleOwners()
         {
             
-            var data = service.storageContext.data;
+            var data = Helper.service.storageContext.data;
             byte[] promiseBytes = null;
             Assert.AreEqual(data.Count, 0);
 
             for (int i = 0; i < HASHES.Length; ++i)
             {
                 /**CHANGE USER SCRIPT HASH*/
-                InitTransactionContext(HASHES[i]);
+                Helper.InitTransactionContext(HASHES[i], 10);
                 var promise = new Promise
                 {
                     Id = i,
@@ -333,7 +314,7 @@ namespace SmartPromise.Test
                     Proof = ""
                 };
 
-                Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+                Assert.AreEqual(Helper.AddPromise(promise), true);
                 /**ONE RECORD FOR PROMISE DATA AND ONE RECORD FOR PROMISES COUNTER*/
                 Assert.AreEqual(data.Count, (i + 1) * 2);
                 /**PROMISES ID NUMERATION STARTS WITH ONE*/
@@ -346,8 +327,8 @@ namespace SmartPromise.Test
         [TestMethod]
         public void CanCountPromisesProperly()
         {
-            InitTransactionContext(HASHES[0]);
-            var data = service.storageContext.data;
+            Helper.InitTransactionContext(HASHES[0], 10);
+            var data = Helper.service.storageContext.data;
             Assert.AreEqual(data.Count, 0);
             
             var promise = new Promise
@@ -361,41 +342,41 @@ namespace SmartPromise.Test
                 Proof = ""
             };
 
-            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+            Assert.AreEqual(Helper.AddPromise(promise), true);
             Assert.AreEqual(data.Count, 2);
 
             /** ANOTHER USER INVOKED CONTRACT*/
-            InitTransactionContext(HASHES[1]);
-            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+            Helper.InitTransactionContext(HASHES[1], 10);
+            Assert.AreEqual(Helper.AddPromise(promise), true);
             Assert.AreEqual(data.Count, 2 + 2);
 
-            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+            Assert.AreEqual(Helper.AddPromise(promise), true);
             Assert.AreEqual(data.Count, 4 + 1);
 
-            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+            Assert.AreEqual(Helper.AddPromise(promise), true);
             Assert.AreEqual(data.Count, 5 + 1);
 
             /** ONE MORE USER INVOKED CONTRACT*/
-            InitTransactionContext(HASHES[2]);
-            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+            Helper.InitTransactionContext(HASHES[2], 10);
+            Assert.AreEqual(Helper.AddPromise(promise), true);
             Assert.AreEqual(data.Count, 6 + 2);
 
             /** PREVIOUS USER INVOKED CONTRACT*/
-            InitTransactionContext(HASHES[0]);
-            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+            Helper.InitTransactionContext(HASHES[0], 10);
+            Assert.AreEqual(Helper.AddPromise(promise), true);
             Assert.AreEqual(data.Count, 8 + 1);
 
             /** ONE MORE USER INVOKED CONTRACT*/
-            InitTransactionContext(HASHES[3]);
-            Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+            Helper.InitTransactionContext(HASHES[3], 10);
+            Assert.AreEqual(Helper.AddPromise(promise), true);
             Assert.AreEqual(data.Count, 9 + 2);
         }
         
         [TestMethod]
         public void CanAddMultiplePromisesToOwner()
         {
-            InitTransactionContext(HASHES[0]);
-            var data = service.storageContext.data;
+            Helper.InitTransactionContext(HASHES[0], 10);
+            var data = Helper.service.storageContext.data;
             byte[] promiseBytes = null;
             Assert.AreEqual(data.Count, 0);
 
@@ -412,7 +393,7 @@ namespace SmartPromise.Test
                     Proof = ""
                 };
 
-                Assert.AreEqual(Helper.AddPromise(promise, scriptContainer, service), true);
+                Assert.AreEqual(Helper.AddPromise(promise), true);
                 /** EVERY NEW PROMISE CREATES NEW RECORD IN STORAGE PLUS ONE RECORD TO STORE PROMISES COUNT*/
                 Assert.AreEqual(data.Count, i + 1);
                 string promiseId = Helper.GetPromiseKey(HASHES[0], i);
@@ -424,8 +405,8 @@ namespace SmartPromise.Test
         [TestMethod]
         public void ReturnsFalseWhenInvalidOperation()
         {
-            InitTransactionContext(HASHES[0]);
-            ExecutionEngine engine = new ExecutionEngine(scriptContainer, Crypto.Default, null, service);
+            Helper.InitTransactionContext(HASHES[0], 10);
+            ExecutionEngine engine = new ExecutionEngine(Helper.scriptContainer, Crypto.Default, null, Helper.service);
             engine.LoadScript(File.ReadAllBytes(Helper.CONTRACT_ADDRESS));
 
             using (ScriptBuilder sb = new ScriptBuilder())

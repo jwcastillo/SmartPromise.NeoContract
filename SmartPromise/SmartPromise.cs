@@ -52,12 +52,26 @@ namespace SmartPromise
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
             /**GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION*/
             TransactionOutput[] reference = tx.GetReferences();
-            TransactionOutput firstReference = reference[0];
-            return firstReference.ScriptHash.AsString();
+            return reference[0].ScriptHash.AsString();
+        }
+
+        private static string GetNeoSenderScriptHash()
+        {
+            
+            Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
+            /**GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION*/
+            TransactionOutput[] reference = tx.GetReferences();
+            foreach (TransactionOutput output in reference)
+            {
+                if (output.AssetId == neo_asset_id)
+                    return output.ScriptHash.AsString();
+            }
+            return new byte[0].AsString();
+
         }
 
         /**SUMS AND RETURNS ALL NEO INPUT VALUES IN THIS TRANSACTION*/
-        private static BigInteger GetContributedNeo()
+        private static BigInteger GetContributeNeo()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
             TransactionOutput[] references = tx.GetReferences();
@@ -74,14 +88,20 @@ namespace SmartPromise
 
         public static object Main(string operation, params object[] args)
         {
-            string senderSH = GetSenderScriptHash();
+            string senderSH;
 
             switch (operation)
             {
                 case "replace":
-                    return Replace(senderSH, (string)args[0], (BigInteger)args[1]); 
+                    {
+                        senderSH = GetSenderScriptHash();
+                        return Replace(senderSH, (string)args[0], (BigInteger)args[1]);
+                    }
                 case "add":
-                    return Add(senderSH, (string)args[0]);
+                    {
+                        senderSH = GetSenderScriptHash();
+                        return Add(senderSH, (string)args[0]);
+                    }
                 case "mintTokens":
                     return MintTokens();
                 case "transfer":
@@ -121,9 +141,9 @@ namespace SmartPromise
         /**EXCHANGE NEO ASSET ON SMART COIN TOKEN*/
         public static bool MintTokens()
         {
-            string senderSH = GetSenderScriptHash();
+            string senderSH = GetNeoSenderScriptHash();
             Runtime.Notify("Mint sender ", senderSH);
-            BigInteger value = GetContributedNeo();
+            BigInteger value = GetContributeNeo();
             Runtime.Notify("Amount ", value);
 
             if (value == 0)
