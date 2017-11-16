@@ -87,20 +87,12 @@ namespace SmartPromise
 
         public static object Main(string operation, params object[] args)
         {
-            string senderSH;
-
             switch (operation)
             {
                 case "replace":
-                    {
-                        senderSH = GetSenderScriptHash();
                         return Replace((string)args[0], (string)args[1], (BigInteger)args[2]);
-                    }
                 case "add":
-                    {
-                        senderSH = GetSenderScriptHash();
                         return Add((string)args[0], (string)args[1]);
-                    }
                 case "mintTokens":
                     return MintTokens();
                 case "transfer":
@@ -177,6 +169,9 @@ namespace SmartPromise
         private static bool Replace(string senderSH, string promise, BigInteger index)
         {
             Runtime.Notify("Replace senderSH ", senderSH, " iNDEX ", index);
+            if (!Runtime.CheckWitness(senderSH.AsByteArray()))
+                return false;
+
             string key = GetPromiseKey(senderSH, index);
 
             byte[] res = Storage.Get(Storage.CurrentContext, key);
@@ -196,7 +191,8 @@ namespace SmartPromise
         private static bool Add(string senderSH, string promiseJson)
         {
             Runtime.Notify("Add sender ", senderSH);
-            
+            if (!Runtime.CheckWitness(senderSH.AsByteArray()))
+                return false;
 
             BigInteger counter = GetPromiseCounter(senderSH);
             Runtime.Notify("Counter ", counter);
