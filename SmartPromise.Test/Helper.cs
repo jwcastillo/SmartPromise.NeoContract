@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.IO;
+using System.Linq;
 
 namespace SmartPromise.Test
 {
@@ -139,14 +140,14 @@ namespace SmartPromise.Test
             return engine.EvaluationStack.Peek().GetBoolean();
         }
 
-        public static void InitTransactionContext(string scriptHash, int value, int inputAmount = 1)
+        public static void InitTransactionContext(string scriptHash, int value, ushort inputAmount = 1)
         {
-            Transaction initialTransaction = new CustomTransaction(TransactionType.ContractTransaction); ;
+            Transaction initialTransaction = new CustomTransaction(TransactionType.ContractTransaction);
             Transaction currentTransaction = new CustomTransaction(TransactionType.ContractTransaction);
             initialTransaction.Outputs = new TransactionOutput[inputAmount];
             currentTransaction.Inputs = new CoinReference[inputAmount];
 
-            for (int i = 0; i < inputAmount; ++i)
+            for (ushort i = 0; i < inputAmount; ++i)
             {
                 /** CREATE FAKE PREVIOUS TRANSACTION */
                 var transactionOutput = new TransactionOutput
@@ -161,8 +162,9 @@ namespace SmartPromise.Test
                 var coinRef = new CoinReference
                 {
                     PrevHash = initialTransaction.Hash,
-                    PrevIndex = (ushort)i
+                    PrevIndex = i
                 };
+
 
                 currentTransaction.Inputs[i] = coinRef;
             }

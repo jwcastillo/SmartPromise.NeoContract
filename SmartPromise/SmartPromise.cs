@@ -121,6 +121,9 @@ namespace SmartPromise
         private static bool Transfer(string from, string to, BigInteger value)
         {
             Runtime.Notify("Transfer from ", from, " To ", to, " value ", value);
+            if (!Runtime.CheckWitness(from.AsByteArray()))
+                return false;
+
             if (value <= 0)
                 return false;
             
