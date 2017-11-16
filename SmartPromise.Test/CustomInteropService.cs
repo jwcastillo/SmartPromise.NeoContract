@@ -31,11 +31,18 @@ namespace SmartPromise.Test
             Register("Neo.Output.GetValue", Output_GetValue);
             Register("Neo.Output.GetAssetId", Output_GetAssetId);
             Register("Neo.Runtime.Notify", Runtime_Notify);
-            
+            Register("System.ExecutionEngine.GetExecutingScriptHash", ExecutionEngine_GetExecutingScriptHash);
+
             storageContext = new CustomStorageContext();
             transactions = new Hashtable();
         }
-        
+
+        private static bool ExecutionEngine_GetExecutingScriptHash(ExecutionEngine engine)
+        {
+            engine.EvaluationStack.Push(engine.CurrentContext.ScriptHash);
+            return true;
+        }
+
         protected virtual bool Output_GetAssetId(ExecutionEngine engine)
         {
             TransactionOutput output = engine.EvaluationStack.Pop().GetInterface<TransactionOutput>();

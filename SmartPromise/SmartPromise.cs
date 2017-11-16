@@ -8,7 +8,9 @@ namespace SmartPromise
     public class SmartPromise : SmartContract
     {
 
-        /**TOKEN SETTINGS*/
+        /**
+         * TOKEN SETTINGS
+         */
         public static string Name() => "SmartCoin";
         public static string Symbol() => "Sc";
         public static readonly byte[] Owner = { 47, 60, 170, 33, 216, 40, 148, 2, 242, 150, 9, 84, 154, 50, 237, 160, 97, 90, 55, 183 };
@@ -40,25 +42,45 @@ namespace SmartPromise
             return (res.Length == 0)? 0 : res.AsBigInteger();
         }
 
-        /**PUTS PROMISE COUNTER IN STORAGE*/
+
+        /// <summary>
+        /// PUTS PROMISE COUNTER IN STORAGE
+        /// </summary>
+        /// <param name="senderSH"></param>
+        /// <param name="counter"></param>
         private static void PutPromiseCounter(string senderSH, BigInteger counter)
         {
             string key = GetPromiseCounterKey(senderSH);
             Storage.Put(Storage.CurrentContext, key, counter);
         }
-        
+
+        /// <summary>
+        /// GET SENDER SCRIPT HASH
+        /// </summary>
+        /// <returns></returns>
         private static string GetSenderScriptHash()
         {
+            Runtime.Notify("GetSenderScriptHash");
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-            /**GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION*/
+            Runtime.Notify("Got tx");
+            /**
+             * GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION
+             */
             TransactionOutput[] reference = tx.GetReferences();
+            Runtime.Notify("Result", reference[0].ScriptHash);
             return reference[0].ScriptHash.AsString();
         }
 
+        /// <summary>
+        /// GET SENDER SCRIPT HASH, WHO SENT NEO TO THE CONTRACT
+        /// </summary>
+        /// <returns></returns>
         private static string GetNeoSenderScriptHash()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
-            /**GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION*/
+            /**
+             * GETS ALL TRANSACTIONS OUTPUTS THAT POINTS TO THIS TRANSACTION
+             */
             TransactionOutput[] reference = tx.GetReferences();
             foreach (TransactionOutput output in reference)
             {
@@ -69,22 +91,31 @@ namespace SmartPromise
 
         }
 
-        /**SUMS AND RETURNS ALL NEO INPUT VALUES IN THIS TRANSACTION*/
+        /// <summary>
+        /// SUMS AND RETURNS ALL NEO INPUTS, ADDRESSED TO THIS CONTRACT
+        /// </summary>
+        /// <returns></returns>
         private static BigInteger GetContributeNeo()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
             TransactionOutput[] references = tx.GetReferences();
 
             BigInteger contributed = 0;
-            foreach(var reference in references)
+            foreach (var reference in references)
             {
-                if (reference.AssetId == neo_asset_id)  {
+                if (reference.AssetId == neo_asset_id && 
+                    ExecutionEngine.ExecutingScriptHash == reference.ScriptHash)
                     contributed += reference.Value;
-                }
             }
             return contributed;
         }
 
+        /// <summary>
+        /// MAIN FUNCTION
+        /// </summary>
+        /// <param name="operation"></param>
+        /// <param name="args"></param>
+        /// <returns></returns>
         public static object Main(string operation, params object[] args)
         {
             switch (operation)
@@ -107,14 +138,19 @@ namespace SmartPromise
             
             }
         }
-        
-        /**TRANSFERS SMART COIN TOKEN BETWEEN ADDRESSES*/
+
+        /// <summary>
+        /// TRANSFERS SMART COIN TOKEN BETWEEN ADDRESSES
+        /// </summary>
+        /// <param name="from"></param>
+        /// <param name="to"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         private static bool Transfer(string from, string to, BigInteger value)
         {
-            Runtime.Notify("Transfer from ", from, " To ", to, " value ", value);
             if (!Runtime.CheckWitness(from.AsByteArray()))
                 return false;
-
+            
             if (value <= 0)
                 return false;
             
@@ -131,47 +167,48 @@ namespace SmartPromise
             Storage.Put(Storage.CurrentContext, to, to_value + value);
             return true;
         }
-        
-        /**EXCHANGE NEO ASSET ON SMART COIN TOKEN*/
+
+        /// <summary>
+        /// EXCHANGE NEO ASSET ON SMART COIN TOKEN
+        /// </summary>
+        /// <returns></returns>
         public static bool MintTokens()
         {
             string senderSH = GetNeoSenderScriptHash();
-            Runtime.Notify("Mint sender ", senderSH);
+
+            if (senderSH.Length == 0)
+                return false;
+
             BigInteger value = GetContributeNeo();
-            Runtime.Notify("Amount ", value);
 
             if (value == 0)
-            {
                 return false;
-            }
 
             byte[] ba = Storage.Get(Storage.CurrentContext, senderSH);
 
             BigInteger balance;
             if (ba.Length == 0)
-            {
                 balance = 0;
-            }
             else
-            {
                 balance = ba.AsBigInteger();
-            }
 
             Storage.Put(Storage.CurrentContext, senderSH, value + balance);
             return true;
         }
 
 
-        /**
-         * FINDS PROMISE BY INDEX AND REPLACE IT WITH NEW ONE
-         * RETURNS FALSE, IF HAVEN'T FOUND PROMISE TO REPLACE
-         */
+        /// <summary>
+        /// FINDS PROMISE BY INDEX AND REPLACE IT WITH NEW ONE
+        /// RETURNS FALSE, IF HAVEN'T FOUND PROMISE TO REPLACE
+        /// </summary>
+        /// <param name="senderSH"></param>
+        /// <param name="promise"></param>
+        /// <param name="index"></param>
+        /// <returns></returns>
         private static bool Replace(string senderSH, string promise, BigInteger index)
         {
-            Runtime.Notify("Replace senderSH ", senderSH, " iNDEX ", index);
             if (!Runtime.CheckWitness(senderSH.AsByteArray()))
                 return false;
-
             string key = GetPromiseKey(senderSH, index);
 
             byte[] res = Storage.Get(Storage.CurrentContext, key);
@@ -183,19 +220,19 @@ namespace SmartPromise
             return true;
         }
         
-        /**
-         * PUTS NEW PROMISE IN USER'S STORAGE
-         * UPDATES PROMISES COUNTER AND PUTS IT IN STORAGE
-         * (PROMISES ARE NUMERATED FROM 1)
-         */
+        /// <summary>
+        /// PUTS NEW PROMISE IN USER'S STORAGE
+        /// UPDATES PROMISES COUNTER AND PUTS IT IN STORAGE
+        /// PROMISES ARE NUMERATED FROM 1
+        /// </summary>
+        /// <param name="senderSH"></param>
+        /// <param name="promiseJson"></param>
+        /// <returns></returns>
         private static bool Add(string senderSH, string promiseJson)
         {
-            Runtime.Notify("Add sender ", senderSH);
             if (!Runtime.CheckWitness(senderSH.AsByteArray()))
                 return false;
-
             BigInteger counter = GetPromiseCounter(senderSH);
-            Runtime.Notify("Counter ", counter);
             counter += 1;
 
             string key = GetPromiseKey(senderSH, counter);

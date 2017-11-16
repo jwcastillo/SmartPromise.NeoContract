@@ -143,8 +143,6 @@ namespace SmartPromise.Test
             counter = (int)ba[0];
             Assert.AreEqual(counter, 101);
         }
-
-
         
         [TestMethod]
         public void CanMintTokens()
@@ -177,7 +175,7 @@ namespace SmartPromise.Test
             ba = (byte[])data[key];
             Assert.AreEqual((int)ba[0], 105 + 5);
         }
-
+        
         [TestMethod]
         public void ReturnsFalseWhenContributedValueIsZero()
         {
