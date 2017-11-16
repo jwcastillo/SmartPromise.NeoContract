@@ -12,7 +12,7 @@ namespace SmartPromise
          * TOKEN SETTINGS
          */
         public static string Name() => "SmartCoin";
-        public static string Symbol() => "Sc";
+        public static string Symbol() => "SC";
         private static readonly byte[] neo_asset_id = { 155, 124, 255, 218, 166, 116, 190, 174, 15, 147, 14, 190, 96, 133, 175, 144, 147, 229, 254, 86, 179, 74, 92, 34, 12, 205, 207, 110, 252, 51, 111, 197 };
         
         /**
@@ -111,6 +111,7 @@ namespace SmartPromise
             Storage.Put(Storage.CurrentContext, from, from_value - value);
             BigInteger to_value = Storage.Get(Storage.CurrentContext, to).AsBigInteger();
             Storage.Put(Storage.CurrentContext, to, to_value + value);
+            Runtime.Notify("TRANSFERED", from, to, value);
             return true;
         }
 
@@ -136,8 +137,7 @@ namespace SmartPromise
                 balance = ba.AsBigInteger();
             Storage.Put(Storage.CurrentContext, senderSH, value + balance);
             
-            Runtime.Notify("TOKENS MINTED ", value + balance);
-            Runtime.Notify("SENDER", senderSH);
+            Runtime.Notify("MINTED", value + balance, senderSH);
             return true;
         }
 
@@ -162,7 +162,7 @@ namespace SmartPromise
                 return false;
 
             Storage.Put(Storage.CurrentContext, key, promise);
-            Runtime.Notify("Promise replaced", senderSH);
+            Runtime.Notify("REPLACED", senderSH, key);
             return true;
         }
         
@@ -185,6 +185,7 @@ namespace SmartPromise
             Storage.Put(Storage.CurrentContext, key, promiseJson);
             
             PutPromiseCounter(senderSH, counter);
+            Runtime.Notify("ADDED", senderSH, counter);
             return true;
         }
         
